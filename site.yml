@@ -1,0 +1,119 @@
+
+- name: debug
+  tags: debug
+  hosts: all
+  tasks:
+    - name: install tools
+      become: yes
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - nmap
+
+- name: Install the Software
+  tags: software
+  hosts: hadoopnodes
+  vars:
+    nbis_prefix: "/usr/local"
+    nbis_configure_args: "--64 --without-X11"
+    nbis_version: "5.0.0"
+    nbis_src_url: "http://nigos.nist.gov:8080/nist/nbis/nbis_v{{ nbis_version | replace('.', '_') }}.zip"
+    nbis_src_zip: "{{ nbis_src_url | basename }}"
+    nbis_src_checksum: "sha256:0adf8ab0f6b0e4208de50ca00ba21d3d77112ecd66288757ddfed21f6bee92c3"
+    nbis_src_name: "{{ nbis_src_zip | splitext | first }}"
+
+  tasks:
+
+    - name: install dependencies
+      become: yes
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - build-essential
+        - cmake
+        - unzip
+
+    - name: download NBIS
+      get_url:
+        url: "{{ nbis_src_url }}"
+        dest: "/tmp"
+        checksum: "{{ nbis_src_checksum }}"
+
+    - name: extract
+      unarchive:
+        src: "/tmp/{{ nbis_src_zip }}"
+        dest: "{{ ansible_env.HOME }}"
+        creates: "{{ ansible_env.HOME }}/Rel_{{ nbis_version }}"
+        copy: no
+
+    - name: configure and build
+      shell: "{{ item.cmd }} && touch {{ item.creates }}"
+      args:
+        chdir: "{{ ansible_env.HOME }}/Rel_{{ nbis_version }}"
+        creates: "{{ item.creates }}"
+      with_items:
+        - cmd: "./setup.sh {{ nbis_prefix }} {{ nbis_configure_args }}"
+          creates: .ran-setup.sh
+        - cmd: "make config"
+          creates: .ran-make:config
+        - cmd: "make it"
+          creates: .ran-make:it
+
+    - name: install
+      become: yes
+      shell: "make install && touch .ran-make:install"
+      args:
+        chdir: "{{ ansible_env.HOME }}/Rel_{{ nbis_version }}"
+        creates: ".ran-make:install"
+
+
+- name: Deploy the dataset
+  tags: data
+  hosts: frontendnodes
+  vars:
+    download_dir: "/tmp"
+    db_dir: "/tmp/nist"
+    db4_path: "{{ db_dir }}/{{ databases.4.url | splitext | first }}"
+    databases:
+      4:
+        url: "https://s3.amazonaws.com/nist-srd/SD4/NISTSpecialDatabase4GrayScaleImagesofFIGS.zip"
+        sha512: "8fb35d27c4bbb1e15008fbdad0fae0fc64fa0b5cff12259753ca039223cf1b789ff2362ca2889c4a9777b71f85a4101c3338155e3c6fc5f8f22fa146d21e941b"
+
+  tasks:
+
+    - name: install dependencies
+      become: yes
+      apt:
+        name: unzip
+        state: present
+
+    - name: prepare the data directory
+      file:
+        path: "{{ item }}"
+        state: directory
+      with_items:
+        - "{{ download_dir }}"
+        - "{{ db_dir }}"
+
+    - name: download
+      get_url:
+        url: "{{ databases.4.url }}"
+        checksum: "sha512:{{ databases.4.sha512 }}"
+        dest: "{{ download_dir }}"
+        timeout: 60
+
+    - name: extract
+      unarchive:
+        src: "{{ download_dir }}/{{ databases.4.url | basename }}"
+        dest: "{{ db_dir }}"
+        creates: "{{ db4_path }}"
+        copy: false
+
+
+    - name: import databases into hdfs
+      become: hadoop
+      shell: "hadoop fs -put {{ db_dir }} {{ db_dir }} && touch {{ db_dir }}/.imported-to-hdfs"
+      args:
+        creates: "{{ db_dir }}/.imported-to-hdfs"
