@@ -117,3 +117,17 @@
       shell: "hadoop fs -put {{ db_dir }} {{ db_dir }} && touch {{ db_dir }}/.imported-to-hdfs"
       args:
         creates: "{{ db_dir }}/.imported-to-hdfs"
+
+
+- name: Run the  analysis code
+  tags: analysis
+  hosts: frontendnodes
+  tasks:
+    - name: copy the analysis scripts
+      become: yes
+      copy:
+        src: "{{ item }}"
+        dest: "/home/hadoop/{{ item | basename }}"
+        owner: hadoop
+      with_items:
+        - ./run_mindtct.py
