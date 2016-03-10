@@ -40,5 +40,6 @@ Log into the frontend node and swith to the =hadoop= user.
 You can run the analysis by:
 
 ```
-$ spark-submit run_mindtct.py
+$ sbt package
+$ spark-submit --class MINDTCT target/scala-2.10/nbis_2.10-1.0.jar
 ```
