@@ -25,6 +25,20 @@
 
   tasks:
 
+    - name: add repository keys
+      become: yes
+      apt_key:
+        keyserver: "keyserver.ubuntu.com"
+        id: "642AC823"
+        state: present
+
+    - name: add repositories
+      become: yes
+      apt_repository:
+        repo: "deb https://dl.bintray.com/sbt/debian /"
+        state: present
+        update_cache: yes
+
     - name: install dependencies
       become: yes
       apt:
@@ -34,6 +48,7 @@
         - build-essential
         - cmake
         - unzip
+        - sbt
 
     - name: download NBIS
       get_url:
