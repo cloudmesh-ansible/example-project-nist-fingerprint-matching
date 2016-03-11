@@ -34,9 +34,9 @@ At this point:
 - The database will be on HDFS under `/nist`
 - The NBIS tools will be installed on all the hadoop nodes under `/usr/local`
 - Spark and HBase will be available to use
-- The example analysis code will be deployed to the =hadoop= user's home directory
+- The example analysis code will be deployed to the `hadoop` user's home directory
 
-Log into the frontend node and swith to the =hadoop= user.
+Log into the frontend node and swith to the `hadoop` user.
 You can run the analysis by:
 
 ```
