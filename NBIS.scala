@@ -1,5 +1,5 @@
 import org.apache.hadoop.hbase.{HBaseConfiguration, HTableDescriptor, HColumnDescriptor, TableName}
-import org.apache.hadoop.hbase.client.{Admin, Connection, ConnectionFactory}
+import org.apache.hadoop.hbase.client.{Admin, Connection, ConnectionFactory, Table, Put}
 import org.apache.hadoop.hbase.mapreduce.TableInputFormat
 
 
@@ -8,6 +8,7 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.rdd._
 import org.apache.spark.input._
 import scala.sys.process._
+import scala.collection.JavaConverters._
 
 import org.apache.commons.io.FilenameUtils
 import org.apache.commons.io.FileUtils.{deleteDirectory, readFileToByteArray, writeByteArrayToFile}
@@ -87,11 +88,37 @@ object MINDTCT {
     ConnectionFactory.createConnection(cfg)
   }
 
+  def hbaseTableName(): TableName = {
+    TableName.valueOf("mindtct")
+  }
+
+  def getPut(item: (FilePath, MindtctResult)): Put = {
+    val row = new Put(item._1.getBytes)
+    item._2.foreach(
+      ext_bits =>
+      row.addColumn("output".getBytes,
+		    ext_bits._1.getBytes,
+		    ext_bits._2)
+    )
+    row
+  }
 
   def store_in_hbase(item: (FilePath, MindtctResult)): Unit = {
-    val ha = hbaseConnection().getAdmin()
-    ha.close()
-    ()
+    println("To HBase: %s".format(item._1))
+    val conn = hbaseConnection()
+    try {
+
+      val table = conn.getTable(hbaseTableName)
+      val row = new Put(item._1.getBytes())
+      item._2.foreach (
+	ext_and_bits =>
+	row.addColumn("output".getBytes(), 
+		      ext_and_bits._1.getBytes,
+		      ext_and_bits._2)
+      )
+      table.put(row)
+      table.close()
+    } finally { conn.close() }
   }
 
 
@@ -100,10 +127,9 @@ object MINDTCT {
     val sc = new SparkContext(conf)
 
     val ha = hbaseConnection.getAdmin
-    val htablename = TableName.valueOf("mindtct")
-    val htable = new HTableDescriptor(htablename)
-    if (! ha.tableExists(htablename)) {
-      htable.addFamily(new HColumnDescriptor("mindtct_output"))
+    val htable = new HTableDescriptor(hbaseTableName)
+    if (! ha.tableExists(hbaseTableName)) {
+      htable.addFamily(new HColumnDescriptor("output"))
       ha.createTable(htable)
     }
 
@@ -113,8 +139,15 @@ object MINDTCT {
     val nfiles = pngFiles.count()
     println("nfiles: %s".format(nfiles))
     val mindtctResults = pngFiles.map(run_mindtct)
-
-    mindtctResults.foreachPartition(_.map(store_in_hbase))
+    val puts = mindtctResults.map(getPut)
+    puts.foreachPartition{
+      iterOfPut =>
+      val conn = hbaseConnection
+      try {
+	val table = conn.getTable(hbaseTableName)
+	table.put(iterOfPut.toList.asJava)
+      } finally { conn.close }
+    }
 
   }
 }
