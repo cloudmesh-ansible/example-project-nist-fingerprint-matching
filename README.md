@@ -14,7 +14,7 @@ This example shows how to deploy the NIST Fingerprint [dataset] (Special Databas
 
 [Big Data Stack]: https://github.com/futuresystems/big-data-stack
 
-# How To Run
+# Using
 
 From the root of the repository 
 
@@ -36,7 +36,7 @@ At this point:
 - Spark and HBase will be available to use
 - The example analysis code will be deployed to the `hadoop` user's home directory
 
-Log into the frontend node and swith to the `hadoop` user.
+Log into the frontend node and switch to the `hadoop` user.
 You can run the analysis by:
 
 ```
