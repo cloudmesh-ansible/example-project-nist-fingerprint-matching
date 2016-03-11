@@ -41,5 +41,11 @@ You can run the analysis by:
 
 ```
 $ sbt package
-$ spark-submit --jars $(hbase classpath | tr ':' ',') --class MINDTCT target/scala-2.10/nbis_2.10-1.0.jar
+$ spark-submit \
+    --deploy-mode cluster \
+    --master yarn \
+    --driver-class-path $(hbase classpath) \
+    --conf spark.executor.extraClassPath=$(hbase classpath) \
+    --class MINDTCT \
+    target/scala-2.10/nbis_2.10-1.0.jar
 ```
