@@ -52,7 +52,11 @@ object Util {
 
 object MINDTCT {
 
-  def run_mindtct(item: (String, PortableDataStream)): (String, Array[(String, Array[Byte])]) = {
+  type FilePath = String
+  type FileExtension = String
+  type MindtctResult = Array[(FileExtension, Array[Byte])]
+
+  def run_mindtct(item: (FilePath, PortableDataStream)): (FilePath, MindtctResult) = {
     val workarea = Util.createTempDir()
     val resultPrefix = Paths.get(workarea.getAbsolutePath, "out").toFile()
     val datafile = File.createTempFile("mindtct_input", null, workarea)
