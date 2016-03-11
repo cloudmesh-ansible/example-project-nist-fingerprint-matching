@@ -1,5 +1,5 @@
 import org.apache.hadoop.hbase.{HBaseConfiguration, HTableDescriptor, TableName}
-import org.apache.hadoop.hbase.client.HBaseAdmin
+import org.apache.hadoop.hbase.client.ConnectionFactory
 import org.apache.hadoop.hbase.mapreduce.TableInputFormat
 
 
@@ -16,6 +16,7 @@ import org.apache.commons.io.filefilter.PrefixFileFilter
 import java.util.{UUID}
 import java.io.{File, FileFilter, FileWriter, IOException}
 import java.nio.file.Paths
+import java.lang.System.{getenv}
 
 
 object Util {
@@ -81,15 +82,33 @@ object MINDTCT {
   }
 
 
+  def store_in_hbase(hbaseCfg: Unit)(item: (FilePath, MindtctResult)): Unit = {
+    ()
+  }
+
 
   def main(args: Array[String]) {
     val conf = new SparkConf().setAppName("MINDTCT")
     val sc = new SparkContext(conf)
+
     val pngFiles = sc.binaryFiles("hdfs:///nist/NISTSpecialDatabase4GrayScaleImagesofFIGS/sd04/png_txt/figs_0")
-		  .filter(_._1.endsWith(".png"))
+    		  .filter(_._1.endsWith(".png"))
     val nfiles = pngFiles.count()
     println("nfiles: %s".format(nfiles))
-    pngFiles.map(run_mindtct).collect()
+    val mindtctResults = pngFiles.map(run_mindtct)
+
+    val hbaseCfg = () // FIXME
+    val hbc = HBaseConfiguration.create()
+    val hc = ConnectionFactory.createConnection(hbc)
+    val ha = hc.getAdmin
+    val htablename = TableName.valueOf("mindtct")
+    val htable = new HTableDescriptor(htablename)
+    if (! ha.tableExists(htablename)) {
+      ha.createTable(htable)
+    }
+
+    mindtctResults.foreach(store_in_hbase(hbaseCfg))
+
   }
 }
 	  
