@@ -103,24 +103,6 @@ object MINDTCT {
     row
   }
 
-  def store_in_hbase(item: (FilePath, MindtctResult)): Unit = {
-    println("To HBase: %s".format(item._1))
-    val conn = hbaseConnection()
-    try {
-
-      val table = conn.getTable(hbaseTableName)
-      val row = new Put(item._1.getBytes())
-      item._2.foreach (
-	ext_and_bits =>
-	row.addColumn("output".getBytes(), 
-		      ext_and_bits._1.getBytes,
-		      ext_and_bits._2)
-      )
-      table.put(row)
-      table.close()
-    } finally { conn.close() }
-  }
-
 
   def main(args: Array[String]) {
     val conf = new SparkConf().setAppName("MINDTCT")
