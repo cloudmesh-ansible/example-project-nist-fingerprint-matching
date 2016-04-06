@@ -120,9 +120,12 @@
         timeout: 60
 
     - name: extract
+      become: yes
       unarchive:
         src: "{{ download_dir }}/{{ databases.4.url | basename }}"
         dest: "{{ db_dir }}"
+        owner: hadoop
+        group: hadoop
         creates: "{{ db4_path }}"
         copy: false
 
