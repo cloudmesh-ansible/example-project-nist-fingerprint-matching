@@ -129,6 +129,14 @@
         creates: "{{ db4_path }}"
         copy: false
 
+    - name: fix permissions
+      become: yes
+      file:
+        path: "{{ db_dir }}"
+        owner: hadoop
+        group: hadoop
+        recurse: yes
+
     - debug: msg="The next step can take a while. Please be patient"
     - name: import databases into hdfs
       become: yes
