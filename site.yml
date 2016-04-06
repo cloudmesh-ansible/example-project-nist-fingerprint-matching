@@ -128,8 +128,9 @@
 
 
     - name: import databases into hdfs
-      become: hadoop
-      shell: "hadoop fs -put {{ db_dir }} {{ db_dir }} && touch {{ db_dir }}/.imported-to-hdfs"
+      become: yes
+      become_user: hadoop
+      shell: "sh -lc 'hadoop fs -put {{ db_dir }} / && touch {{ db_dir }}/.imported-to-hdfs'"
       args:
         creates: "{{ db_dir }}/.imported-to-hdfs"
 
