@@ -129,7 +129,7 @@
         creates: "{{ db4_path }}"
         copy: false
 
-
+    - debug: msg="The next step can take a while. Please be patient"
     - name: import databases into hdfs
       become: yes
       become_user: hadoop
