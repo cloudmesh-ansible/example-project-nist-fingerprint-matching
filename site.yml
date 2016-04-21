@@ -1,15 +1,4 @@
-
-- name: debug
-  tags: debug
-  hosts: all
-  tasks:
-    - name: install tools
-      become: yes
-      apt:
-        name: "{{ item }}"
-        state: present
-      with_items:
-        - nmap
+---
 
 - name: Install the Software
   tags: software
@@ -25,21 +14,28 @@
 
   tasks:
 
-    - name: add repository keys
+    ##################################################
+    # Debian
+    ##################################################
+
+    - name: add repository keys (Debian)
+      when: ansible_os_family == 'Debian'
       become: yes
       apt_key:
         keyserver: "keyserver.ubuntu.com"
         id: "642AC823"
         state: present
 
-    - name: add repositories
+    - name: add repositories (Debian)
+      when: ansible_os_family == 'Debian'
       become: yes
       apt_repository:
         repo: "deb https://dl.bintray.com/sbt/debian /"
         state: present
         update_cache: yes
 
-    - name: install dependencies
+    - name: install dependencies (Debian)
+      when: ansible_os_family == 'Debian'
       become: yes
       apt:
         name: "{{ item }}"
@@ -49,6 +45,40 @@
         - cmake
         - unzip
         - sbt
+
+    ##################################################
+    # RedHat
+    ##################################################
+
+    - name: add repository (RedHat)
+      when: ansible_os_family == 'RedHat'
+      become: yes
+      get_url:
+        url: "https://bintray.com/sbt/rpm/rpm"
+        dest: /etc/yum.repos.d/binary-sbt-rpm.repo
+
+    - name: install dependencies (RedHat)
+      when: ansible_os_family == 'RedHat'
+      become: yes
+      yum:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - cmake
+        - unzip
+
+    - name: install dependencies (unsigned packages) (RedHat)
+      when: ansible_os_family == 'RedHat'
+      become: yes
+      yum:
+        name: "{{ item }}"
+        state: present
+        disable_gpg_check: yes
+      with_items:
+        - sbt
+
+
+    ##################################################
 
     - name: download NBIS
       get_url:
@@ -97,12 +127,6 @@
         sha512: "8fb35d27c4bbb1e15008fbdad0fae0fc64fa0b5cff12259753ca039223cf1b789ff2362ca2889c4a9777b71f85a4101c3338155e3c6fc5f8f22fa146d21e941b"
 
   tasks:
-
-    - name: install dependencies
-      become: yes
-      apt:
-        name: unzip
-        state: present
 
     - name: prepare the data directory
       file:
