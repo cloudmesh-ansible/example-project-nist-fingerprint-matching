@@ -85,14 +85,14 @@ We use the following NIST dataset for the study:
 #. Deploy the stack
 
    #. `Big Data Stack`_
-   #. `deploy.yml`
+   #. `deploy.yml`_
 
-#. Prepare the dataset -- `dataset.yml`
+#. Prepare the dataset -- `dataset.yml`_
 
    #. adds dataset to HBase -- scala, spark, hbase
    #. partitions dataset into "probe" and "gallery"
 
-#. Run the analysis -- `analysis.yml`, scala, spark, hbase
+#. Run the analysis -- `analysis.yml`_, scala, spark, hbase
 
    #. Load the probe sete
    #. Load the gallery set
@@ -102,6 +102,9 @@ We use the following NIST dataset for the study:
 #. Use Hive to query
 
 
+.. _deploy.yml: deploy.yml
+.. _dataset.yml: dataset.yml
+.. _analysis.yml: analysis.yml
 .. _Big Data Stack: https://github.com/futuresystems/big-data-stack
 
 
