@@ -143,12 +143,8 @@ Installation
 #. Deploy Hadoop, Spark, HBase and Hive::
 
      cd big-data-stack
-     ansible-playbook \
-       -i <path/to/inventory.txt> \
-       play-hadoop.yml \
-       addons/spark.yml \
-       addons/hbase.yml \
-       addons/hive.yml
+     ansible-playbook -i <path/to/inventory.txt> play-hadoop.yml \
+       addons/spark.yml addons/hbase.yml addons/hive.yml
      cd -
 
 #. Deploy the software::
