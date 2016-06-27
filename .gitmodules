@@ -1,0 +1,3 @@
+[submodule "big-data-stack"]
+	path = big-data-stack
+	url = https://github.com/futuresystems/big-data-stack
