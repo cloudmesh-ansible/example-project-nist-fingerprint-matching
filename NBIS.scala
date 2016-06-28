@@ -1,3 +1,8 @@
+import scala.io.Source
+import java.nio.file.{Files,Path}
+import java.io.File
+import java.util.UUID
+
 import org.apache.hadoop.hbase.{HBaseConfiguration, HTableDescriptor, HColumnDescriptor, TableName}
 import org.apache.hadoop.hbase.client.{Admin, Connection, ConnectionFactory, Table, Put}
 import org.apache.hadoop.hbase.mapreduce.TableInputFormat
@@ -50,6 +55,132 @@ object Util {
     }
     dir.getCanonicalFile
   }
+}
+
+object HBaseAPI {
+
+  def Connection(): Connection = {
+    val cfg = HBaseConfiguration.create()
+    ConnectionFactory.createConnection(cfg)
+  }
+
+
+  def getTableName(name: String): TableName = {
+    TableName.valueOf(name)
+  }
+
+
+  def getTable(conn: Connection, name: String): Table = {
+    conn.getTable(getTableName(name))
+  }
+
+
+  def createTable(ha: Admin, name: String, columns: Array[String]): HTableDescriptor = {
+    val tableName = getTableName(name)
+    val table     = new HTableDescriptor(tableName)
+    if (! ha.tableExists(tableName)) {
+      columns.foreach { columnName => table.addFamily(new HColumnDescriptor(columnName)) }
+      ha.createTable(table)
+    }
+    table
+  }
+
+
+}
+
+
+class Image(val Gender: Char, val Class: Char, val History: String, val Png: Array[Byte]) {
+
+  val uuid = UUID.randomUUID().toString
+
+  def hbaseTable(admin: Admin): HTableDescriptor = {
+    HBaseAPI.createTable(admin, Image.tableName, Array("uuid", "gender", "class", "history", "png"))
+  }
+
+
+  def getPut(): Put = {
+    val row = new Put(uuid.getBytes)
+    row.addColumn(Image.tableName.getBytes, "gender".getBytes, Gender.toString.getBytes)
+    row.addColumn(Image.tableName.getBytes, "class".getBytes, Class.toString.getBytes)
+    row.addColumn(Image.tableName.getBytes, "history".getBytes, History.getBytes)
+    row.addColumn(Image.tableName.getBytes, "png".getBytes, Png)
+    row
+  }
+
+}
+
+object Image {
+
+  type MD5Path = Path
+  type PngPath = Path
+  type MetadataPath = Path
+
+  val tableName = "Image";
+
+
+  def fromFiles(png: PngPath, txt: MetadataPath): Image = {
+
+    val gcm = Source.fromFile(txt.toString).getLines.toList.map(_.split(": ")(1).trim)
+    val Gender = gcm(0).toList(0)
+    val Class = gcm(1).toList(1)
+    val History = gcm(2)
+    val Png = Files.readAllBytes(png)
+
+    new Image(Gender=Gender, Class=Class, History=History, Png=Png)
+
+  }
+
+  // TODO
+  // def fromHBase(conn: Connection): Image = {
+  // }
+
+
+  def getTable(conn: Connection): Table = {
+    HBaseAPI.getTable(conn, tableName)
+  }
+
+}
+
+
+object LoadData {
+
+
+  def loadImageList(checksums: Image.MD5Path): Array[(Image.PngPath,Image.MetadataPath)] = {
+
+    val grouped = Source.fromFile(checksums.toString).getLines.toList
+      .map(_.split(" ")(1).trim)
+      .map(new File(_).toPath)
+      .groupBy(_.toString.split('.')(0))
+
+    grouped.keys.map{k =>
+      val v = grouped.get(k).get
+      (v(0), v(1))
+    }.toArray
+
+  }
+
+
+  def main(args: Array[String]) {
+
+    val conf = new SparkConf().setAppName("Fingerprint.LoadData")
+    val sc = new SparkContext(conf)
+
+    val checksum_path = new File(args(1)).toPath
+    val imagepaths = loadImageList(checksum_path)
+    val images = sc.parallelize(imagepaths)
+      .map(paths => Image.fromFiles(paths._1, paths._2))
+    val imagePuts = images.map(_.getPut)
+    imagePuts.foreachPartition{
+      sequence =>
+      val conn = HBaseAPI.Connection
+      try {
+        val table = Image.getTable(conn)
+        table.put(sequence.toList.asJava)
+      } finally { conn.close }
+    }
+
+  }
+
 }
 
 object MINDTCT {
