@@ -12,5 +12,6 @@ libraryDependencies ++= Seq(
   "org.apache.hbase" % "hbase-common" % "1.2.0",
   "org.apache.hbase" % "hbase-server" % "1.2.0",
   "org.apache.spark" %% "spark-core" % "1.6.0",
+  "it.nerdammer.bigdata" % "spark-hbase-connector_2.10" % "1.0.3",
   "commons-io" % "commons-io" % "2.4"
 )

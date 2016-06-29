@@ -7,6 +7,7 @@ import org.apache.hadoop.hbase.{HBaseConfiguration, HTableDescriptor, HColumnDes
 import org.apache.hadoop.hbase.client.{Admin, Connection, ConnectionFactory, Table, Put}
 import org.apache.hadoop.hbase.mapreduce.TableInputFormat
 
+import it.nerdammer.spark.hbase._
 
 import org.apache.spark._
 import org.apache.spark.SparkContext._
