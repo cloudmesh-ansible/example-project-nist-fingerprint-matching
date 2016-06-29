@@ -6,8 +6,10 @@ import java.util.UUID
 import org.apache.hadoop.hbase.{HBaseConfiguration, HTableDescriptor, HColumnDescriptor, TableName}
 import org.apache.hadoop.hbase.client.{Admin, Connection, ConnectionFactory, Table, Put}
 import org.apache.hadoop.hbase.mapreduce.TableInputFormat
+import org.apache.hadoop.hbase.util.Bytes
 
 import it.nerdammer.spark.hbase._
+import it.nerdammer.spark.hbase.conversion._
 
 import org.apache.spark._
 import org.apache.spark.SparkContext._
@@ -90,20 +92,13 @@ object HBaseAPI {
 }
 
 
-class Image(val Gender: Char, val Class: Char, val History: String, val Png: Array[Byte]) {
+case class Image(
+  uuid: String = UUID.randomUUID().toString,
+  Gender: String,
+  Class: String,
+  History: String,
+  Png: Array[Byte])
 
-  val uuid = UUID.randomUUID().toString
-
-  def hbaseTable(admin: Admin): HTableDescriptor = {
-    HBaseAPI.createTable(admin, Image.tableName, Array("uuid", "gender", "class", "history", "png"))
-  }
-
-
-  def getPut(): Put = {
-    Image.getPut(this)
-  }
-
-}
 
 object Image {
 
@@ -117,19 +112,27 @@ object Image {
   def fromFiles(png: PngPath, txt: MetadataPath): Image = {
 
     val gcm = Source.fromFile(txt.toString).getLines.toList.map(_.split(": ")(1).trim)
-    val Gender = gcm(0).toList(0)
-    val Class = gcm(1).toList(1)
-    val History = gcm(2)
-    val Png = Files.readAllBytes(png)
-
-    new Image(Gender=Gender, Class=Class, History=History, Png=Png)
+    Image(
+      Gender = gcm(0),
+      Class = gcm(1),
+      History = gcm(2),
+      Png = Files.readAllBytes(png))
 
   }
 
+
+  def saveHBase(sc: SparkContext, images: RDD[Image]) {
+
+    images.toHBaseTable(tableName)
+      .toColumns("uuid", "gender", "class", "history", "png")
+
+  }
+
+
   def getPut(image: Image): Put = {
     new Put(image.uuid.getBytes)
-      .addColumn(tableName.getBytes, "gender".getBytes, image.Gender.toString.getBytes)
-      .addColumn(tableName.getBytes, "class".getBytes, image.Class.toString.getBytes)
+      .addColumn(tableName.getBytes, "gender".getBytes, image.Gender.getBytes)
+      .addColumn(tableName.getBytes, "class".getBytes, image.Class.getBytes)
       .addColumn(tableName.getBytes, "history".getBytes, image.History.getBytes)
       .addColumn(tableName.getBytes, "png".getBytes, image.Png)
   }
@@ -143,7 +146,54 @@ object Image {
     HBaseAPI.getTable(conn, tableName)
   }
 
+
+  def toHBase(rdd: RDD[Image]) {
+
+    rdd.toHBaseTable(Image.tableName)
+      .inColumnFamily(Image.tableName)
+      .save()
+
+  }
+
+
+  def fromHBase(sc: SparkContext): RDD[Image] = {
+    sc.hbaseTable[Image](Image.tableName)
+      .inColumnFamily(Image.tableName)
+  }
+
+
+  implicit def ImageWriter: FieldWriter[Image] = new FieldWriter[Image] {
+    
+    override def map(image: Image): HBaseData = {
+      Seq(
+        Some(image.Gender.toString.getBytes),
+        Some(image.Class.toString.getBytes),
+        Some(image.History.getBytes),
+        Some(image.Png)
+      )
+    }
+    
+    override def columns = Seq("gender", "class", "history", "png")
+
 }
+
+
+  implicit def ImageReader: FieldReader[Image] = new FieldReader[Image] {
+    override def map(data: HBaseData): Image = {
+      Image(
+        uuid    = Bytes.toString(data.head.get),
+        Gender  = Bytes.toString(data.drop(1).head.get),
+        Class   = Bytes.toString(data.drop(2).head.get),
+        History = Bytes.toString(data.drop(3).head.get),
+        Png     = data.drop(4).head.get
+      )
+    }
+
+    override def columns = Seq("gender", "class", "history", "png")
+}
+
+}
+
 
 
 object LoadData {
@@ -173,15 +223,7 @@ object LoadData {
     val imagepaths = loadImageList(checksum_path)
     val images = sc.parallelize(imagepaths)
       .map(paths => Image.fromFiles(paths._1, paths._2))
-    val imagePuts = images.map(_.getPut)
-    imagePuts.foreachPartition{
-      sequence =>
-      val conn = HBaseAPI.Connection
-      try {
-        val table = Image.getTable(conn)
-        table.put(sequence.toList.asJava)
-      } finally { conn.close }
-    }
+    Image.toHBase(images)
 
   }
 
