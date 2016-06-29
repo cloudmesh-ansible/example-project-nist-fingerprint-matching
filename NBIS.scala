@@ -19,13 +19,15 @@ import scala.sys.process._
 import scala.collection.JavaConverters._
 
 import org.apache.commons.io.FilenameUtils
-import org.apache.commons.io.FileUtils.{deleteDirectory, readFileToString, readFileToByteArray, writeByteArrayToFile}
+import org.apache.commons.io.FileUtils.{deleteDirectory, readLines, readFileToString, readFileToByteArray, writeByteArrayToFile}
 import org.apache.commons.io.filefilter.PrefixFileFilter
 
 import java.util.{UUID}
 import java.io.{File, FileFilter, FileWriter, IOException}
 import java.nio.file.Paths
 import java.lang.System.{getenv}
+
+import scala.collection.JavaConversions._
 
 
 /********************************************************************** Utilities */
@@ -95,6 +97,19 @@ object HBaseAPI {
 }
 
 
+object HBaseSparkConnector {
+
+  implicit def byteArrayWriter: FieldWriter[Array[Byte]] = new SingleColumnFieldWriter[Array[Byte]] {
+    override def mapColumn(data: Array[Byte]): Option[Array[Byte]] = Some(data)
+  }
+
+  implicit def byteArrayReader: FieldReader[Array[Byte]] = new SingleColumnConcreteFieldReader[Array[Byte]] {
+    def columnMap(cols: Array[Byte]): Array[Byte] = cols
+  }
+
+}
+
+
 /********************************************************************** Image */
 
 case class Image(
@@ -107,11 +122,15 @@ case class Image(
 
 object Image {
 
+  type TupleT = (String, String, String, String, Array[Byte])
+
   type MD5Path = Path
   type PngPath = Path
   type MetadataPath = Path
 
   val tableName = "Image";
+
+  val hbaseColumns = Seq("gender", "class", "history", "png")
 
 
   def fromFiles(png: PngPath, txt: MetadataPath): Image = {
@@ -136,40 +155,23 @@ object Image {
 
 
   def fromHBase(sc: SparkContext): RDD[Image] = {
-    sc.hbaseTable[Image](Image.tableName)
+    sc.hbaseTable[Image](tableName)
       .inColumnFamily(Image.tableName)
   }
 
 
-  implicit def ImageWriter: FieldWriter[Image] = new FieldWriter[Image] {
-    
-    override def map(image: Image): HBaseData = {
-      Seq(
-        Some(image.Gender.toString.getBytes),
-        Some(image.Class.toString.getBytes),
-        Some(image.History.getBytes),
-        Some(image.Png)
-      )
-    }
-    
-    override def columns = Seq("gender", "class", "history", "png")
+  import HBaseSparkConnector._
 
-}
+  implicit def HBaseWriter: FieldWriter[Image] = new FieldWriterProxy[Image, TupleT] {
+    override def convert(i: Image) = (i.uuid, i.Gender, i.Class, i.History, i.Png)
+    override def columns = hbaseColumns
+  }
 
+  implicit def HBaseReader: FieldReader[Image] = new FieldReaderProxy[TupleT, Image] {
+    override def convert(d: TupleT) = Image(d._1, d._2, d._3, d._4, d._5)
+    override def columns = hbaseColumns
+  }
 
-  implicit def ImageReader: FieldReader[Image] = new FieldReader[Image] {
-    override def map(data: HBaseData): Image = {
-      Image(
-        uuid    = Bytes.toString(data.head.get),
-        Gender  = Bytes.toString(data.drop(1).head.get),
-        Class   = Bytes.toString(data.drop(2).head.get),
-        History = Bytes.toString(data.drop(3).head.get),
-        Png     = data.drop(4).head.get
-      )
-    }
-
-    override def columns = Seq("gender", "class", "history", "png")
-}
 
 }
 
@@ -191,13 +193,15 @@ case class Mindtct(
 
 object Mindtct {
 
+  type TupleT = (String, String, Array[Byte], String, String, String, String, String, String, String)
+
   val tableName = "Mindtct"
 
   val hbaseColumns = Seq("image", "brw", "dm", "hcm", "lcm", "lfm", "min", "qm", "xyt")
 
   def toHBase(rdd: RDD[Mindtct]) {
     rdd.toHBaseTable(tableName)
-      .inColumnFamily(tableName)
+         .inColumnFamily(tableName)
       .save()
   }
 
@@ -206,42 +210,20 @@ object Mindtct {
       .inColumnFamily(tableName)
   }
 
-  implicit def HBaseWriter: FieldWriter[Mindtct] = new FieldWriter[Mindtct] {
-    override def map(m: Mindtct): HBaseData = {
-      Seq(
-        Some(m.uuid.getBytes),
-        Some(m.image.getBytes),
-        Some(m.brw),
-        Some(m.dm.getBytes),
-        Some(m.hcm.getBytes),
-        Some(m.lcm.getBytes),
-        Some(m.lfm.getBytes),
-        Some(m.min.getBytes),
-        Some(m.qm.getBytes),
-        Some(m.xyt.getBytes)
-      )
-    }
 
+  import HBaseSparkConnector._
+
+  implicit def HBaseWriter: FieldWriter[Mindtct] = new FieldWriterProxy[Mindtct, TupleT] {
+    override def convert(m: Mindtct) = (m.uuid, m.image, m.brw, m.dm, m.hcm, m.lcm, m.lfm, m.min, m.qm, m.xyt)
     override def columns = hbaseColumns
   }
 
-  implicit def HBaseReader: FieldReader[Mindtct] = new FieldReader[Mindtct] {
-    override def map(data: HBaseData): Mindtct = {
-      Mindtct(
-        uuid = Bytes.toString(data.head.get),
-        image = Bytes.toString(data.drop(1).head.get),
-        brw = data.drop(2).head.get,
-        dm = Bytes.toString(data.drop(3).head.get),
-        hcm = Bytes.toString(data.drop(4).head.get),
-        lcm = Bytes.toString(data.drop(5).head.get),
-        lfm = Bytes.toString(data.drop(6).head.get),
-        min = Bytes.toString(data.drop(7).head.get),
-        qm = Bytes.toString(data.drop(8).head.get),
-        xyt = Bytes.toString(data.drop(9).head.get)
-      )
-    }
+  implicit def HBaseReader: FieldReader[Mindtct] = new FieldReaderProxy[TupleT, Mindtct] {
+    override def convert(d: TupleT) =
+      Mindtct(d._1, d._2, d._3, d._4, d._5, d._6, d._7, d._8, d._9, d._10)
     override def columns = hbaseColumns
   }
+
 
   def run(image: Image): Mindtct = {
     val workarea = Util.createTempDir(namePrefix = "mindtct-" + image.uuid)
@@ -285,8 +267,8 @@ object LoadData {
 
   def loadImageList(checksums: Image.MD5Path): Array[(Image.PngPath,Image.MetadataPath)] = {
 
-    val grouped = Source.fromFile(checksums.toString).getLines.toList
-      .map(_.split(" ")(1).trim)
+    val grouped = readLines(new File(checksums.toString))
+      .map(_.split(" ").last)
       .map(new File(_).toPath)
       .groupBy(_.toString.split('.')(0))
 
@@ -303,7 +285,8 @@ object LoadData {
     val conf = new SparkConf().setAppName("Fingerprint.LoadData")
     val sc = new SparkContext(conf)
 
-    val checksum_path = new File(args(1)).toPath
+    val checksum_path = new File(args(0)).toPath
+    println("Reading paths from: %s".format(checksum_path.toString))
     val imagepaths = loadImageList(checksum_path)
     val images = sc.parallelize(imagepaths)
       .map(paths => Image.fromFiles(paths._1, paths._2))
