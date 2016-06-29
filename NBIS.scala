@@ -229,6 +229,79 @@ object LoadData {
 
 }
 
+
+case class Mindtct(
+  uuid: String = UUID.randomUUID().toString,
+  image: String,
+  brw: Array[Byte],
+  dm: String,
+  hcm: String,
+  lcm: String,
+  lfm: String,
+  min: String,
+  qm: String,
+  xyt: String
+)
+
+object Mindtct {
+
+  val tableName = "Mindtct"
+
+  val hbaseColumns = Seq("image", "brw", "dm", "hcm", "lcm", "lfm", "min", "qm", "xyt")
+
+  def toHBase(rdd: RDD[Mindtct]) {
+    rdd.toHBaseTable(tableName)
+      .inColumnFamily(tableName)
+      .save()
+  }
+
+  def fromHBase(sc: SparkContext): RDD[Mindtct] = {
+    sc.hbaseTable[Mindtct](tableName)
+      .inColumnFamily(tableName)
+  }
+
+  implicit def HBaseWriter: FieldWriter[Mindtct] = new FieldWriter[Mindtct] {
+    override def map(m: Mindtct): HBaseData = {
+      Seq(
+        Some(m.uuid.getBytes),
+        Some(m.image.getBytes),
+        Some(m.brw),
+        Some(m.dm.getBytes),
+        Some(m.hcm.getBytes),
+        Some(m.lcm.getBytes),
+        Some(m.lfm.getBytes),
+        Some(m.min.getBytes),
+        Some(m.qm.getBytes),
+        Some(m.xyt.getBytes)
+      )
+    }
+
+    override def columns = hbaseColumns
+  }
+
+  implicit def HBaseReader: FieldReader[Mindtct] = new FieldReader[Mindtct] {
+    override def map(data: HBaseData): Mindtct = {
+      Mindtct(
+        uuid = Bytes.toString(data.head.get),
+        image = Bytes.toString(data.drop(1).head.get),
+        brw = data.drop(2).head.get,
+        dm = Bytes.toString(data.drop(3).head.get),
+        hcm = Bytes.toString(data.drop(4).head.get),
+        lcm = Bytes.toString(data.drop(5).head.get),
+        lfm = Bytes.toString(data.drop(6).head.get),
+        min = Bytes.toString(data.drop(7).head.get),
+        qm = Bytes.toString(data.drop(8).head.get),
+        xyt = Bytes.toString(data.drop(9).head.get)
+      )
+    }
+    override def columns = hbaseColumns
+  }
+
+}
+
+
+
+
 object MINDTCT {
 
   type FilePath = String
