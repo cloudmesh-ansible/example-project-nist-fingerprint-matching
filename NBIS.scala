@@ -99,12 +99,7 @@ class Image(val Gender: Char, val Class: Char, val History: String, val Png: Arr
 
 
   def getPut(): Put = {
-    val row = new Put(uuid.getBytes)
-    row.addColumn(Image.tableName.getBytes, "gender".getBytes, Gender.toString.getBytes)
-    row.addColumn(Image.tableName.getBytes, "class".getBytes, Class.toString.getBytes)
-    row.addColumn(Image.tableName.getBytes, "history".getBytes, History.getBytes)
-    row.addColumn(Image.tableName.getBytes, "png".getBytes, Png)
-    row
+    Image.getPut(this)
   }
 
 }
@@ -128,6 +123,14 @@ object Image {
 
     new Image(Gender=Gender, Class=Class, History=History, Png=Png)
 
+  }
+
+  def getPut(image: Image): Put = {
+    new Put(image.uuid.getBytes)
+      .addColumn(tableName.getBytes, "gender".getBytes, image.Gender.toString.getBytes)
+      .addColumn(tableName.getBytes, "class".getBytes, image.Class.toString.getBytes)
+      .addColumn(tableName.getBytes, "history".getBytes, image.History.getBytes)
+      .addColumn(tableName.getBytes, "png".getBytes, image.Png)
   }
 
   // TODO
