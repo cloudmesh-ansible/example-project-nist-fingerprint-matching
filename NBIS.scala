@@ -124,9 +124,9 @@ object Image {
 
   type TupleT = (String, String, String, String, Array[Byte])
 
-  type MD5Path = Path
-  type PngPath = Path
-  type MetadataPath = Path
+  type MD5Path = String
+  type PngPath = String
+  type MetadataPath = String
 
   val tableName = "Image";
 
@@ -135,12 +135,12 @@ object Image {
 
   def fromFiles(png: PngPath, txt: MetadataPath): Image = {
 
-    val gcm = Source.fromFile(txt.toString).getLines.toList.map(_.split(": ")(1).trim)
+    val gcm = readLines(new File(txt)).map(_.split(": ")(1).trim)
     Image(
       Gender = gcm(0),
       Class = gcm(1),
       History = gcm(2),
-      Png = Files.readAllBytes(png))
+      Png = readFileToByteArray(new File(png)))
 
   }
 
@@ -264,13 +264,14 @@ object Mindtct {
 
 object LoadData {
 
+  import Image.{MD5Path, PngPath, MetadataPath}
 
-  def loadImageList(checksums: Image.MD5Path): Array[(Image.PngPath,Image.MetadataPath)] = {
+  def loadImageList(checksums: MD5Path): Array[(PngPath, MetadataPath)] = {
 
-    val grouped = readLines(new File(checksums.toString))
+    val grouped = readLines(new File(checksums))
       .map(_.split(" ").last)
-      .map(new File(_).toPath)
-      .groupBy(_.toString.split('.')(0))
+      .map(new File(_).toString)
+      .groupBy(_.split('.')(0))
 
     grouped.keys.map{k =>
       val v = grouped.get(k).get
@@ -285,7 +286,7 @@ object LoadData {
     val conf = new SparkConf().setAppName("Fingerprint.LoadData")
     val sc = new SparkContext(conf)
 
-    val checksum_path = new File(args(0)).toPath
+    val checksum_path = args(0)
     println("Reading paths from: %s".format(checksum_path.toString))
     val imagepaths = loadImageList(checksum_path)
     val images = sc.parallelize(imagepaths)
