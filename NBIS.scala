@@ -19,7 +19,7 @@ import scala.sys.process._
 import scala.collection.JavaConverters._
 
 import org.apache.commons.io.FilenameUtils
-import org.apache.commons.io.FileUtils.{deleteDirectory, readFileToByteArray, writeByteArrayToFile}
+import org.apache.commons.io.FileUtils.{deleteDirectory, readFileToString, readFileToByteArray, writeByteArrayToFile}
 import org.apache.commons.io.filefilter.PrefixFileFilter
 
 import java.util.{UUID}
@@ -195,41 +195,6 @@ object Image {
 }
 
 
-
-object LoadData {
-
-
-  def loadImageList(checksums: Image.MD5Path): Array[(Image.PngPath,Image.MetadataPath)] = {
-
-    val grouped = Source.fromFile(checksums.toString).getLines.toList
-      .map(_.split(" ")(1).trim)
-      .map(new File(_).toPath)
-      .groupBy(_.toString.split('.')(0))
-
-    grouped.keys.map{k =>
-      val v = grouped.get(k).get
-      (v(0), v(1))
-    }.toArray
-
-  }
-
-
-  def main(args: Array[String]) {
-
-    val conf = new SparkConf().setAppName("Fingerprint.LoadData")
-    val sc = new SparkContext(conf)
-
-    val checksum_path = new File(args(1)).toPath
-    val imagepaths = loadImageList(checksum_path)
-    val images = sc.parallelize(imagepaths)
-      .map(paths => Image.fromFiles(paths._1, paths._2))
-    Image.toHBase(images)
-
-  }
-
-}
-
-
 case class Mindtct(
   uuid: String = UUID.randomUUID().toString,
   image: String,
@@ -297,34 +262,31 @@ object Mindtct {
     override def columns = hbaseColumns
   }
 
-}
-
-
-
-
-object MINDTCT {
-
-  type FilePath = String
-  type FileExtension = String
-  type MindtctResult = Array[(FileExtension, Array[Byte])]
-
-  def run_mindtct(item: (FilePath, PortableDataStream)): (FilePath, MindtctResult) = {
-    val workarea = Util.createTempDir()
+  def run(image: Image): Mindtct = {
+    val workarea = Util.createTempDir(namePrefix = "mindtct-" + image.uuid)
     val resultPrefix = Paths.get(workarea.getAbsolutePath, "out").toFile()
     val datafile = File.createTempFile("mindtct_input", null, workarea)
 
     try {
-      writeByteArrayToFile(datafile, item._2.toArray())
+      writeByteArrayToFile(datafile, image.Png)
       val mindtct = Seq("mindtct", datafile.getAbsolutePath, resultPrefix.getAbsolutePath)
       val returncode = mindtct.!
-      val results = workarea.listFiles(new PrefixFileFilter("out"): FileFilter)
-      		    .map {
-      			  file =>
-      			  val ext  = FilenameUtils.getExtension(file.getName)
-      			  val bits = readFileToByteArray(file)
-      			  (ext, bits)
-      			 }
-      (item._1, results)
+
+      val result = (suffix: String) => new File(resultPrefix.getAbsolutePath + "." + suffix)
+      val strres = (suffix: String) => readFileToString(result(suffix))
+
+      Mindtct(
+        image = image.uuid,
+        brw = readFileToByteArray(result("brw")),
+        dm = strres("dm"),
+        hcm = strres("hcm"),
+        lcm = strres("lcm"),
+        lfm = strres("lfm"),
+        min = strres("min"),
+        qm = strres("qm"),
+        xyt = strres("xyt")
+      )
+
     } finally {
       datafile.delete()
       deleteDirectory(workarea)
@@ -332,54 +294,57 @@ object MINDTCT {
 
   }
 
+}
 
-  def hbaseConnection(): Connection = {
-    val cfg = HBaseConfiguration.create()
-    ConnectionFactory.createConnection(cfg)
+
+
+
+object LoadData {
+
+
+  def loadImageList(checksums: Image.MD5Path): Array[(Image.PngPath,Image.MetadataPath)] = {
+
+    val grouped = Source.fromFile(checksums.toString).getLines.toList
+      .map(_.split(" ")(1).trim)
+      .map(new File(_).toPath)
+      .groupBy(_.toString.split('.')(0))
+
+    grouped.keys.map{k =>
+      val v = grouped.get(k).get
+      (v(0), v(1))
+    }.toArray
+
   }
 
-  def hbaseTableName(): TableName = {
-    TableName.valueOf("mindtct")
+
+  def main(args: Array[String]) {
+
+    val conf = new SparkConf().setAppName("Fingerprint.LoadData")
+    val sc = new SparkContext(conf)
+
+    val checksum_path = new File(args(1)).toPath
+    val imagepaths = loadImageList(checksum_path)
+    val images = sc.parallelize(imagepaths)
+      .map(paths => Image.fromFiles(paths._1, paths._2))
+    Image.toHBase(images)
+
   }
 
-  def getPut(item: (FilePath, MindtctResult)): Put = {
-    val row = new Put(item._1.getBytes)
-    item._2.foreach(
-      ext_bits =>
-      row.addColumn("output".getBytes,
-		    ext_bits._1.getBytes,
-		    ext_bits._2)
-    )
-    row
-  }
+}
 
+
+object RunMindtct {
 
   def main(args: Array[String]) {
     val conf = new SparkConf().setAppName("MINDTCT")
     val sc = new SparkContext(conf)
 
-    val ha = hbaseConnection.getAdmin
-    val htable = new HTableDescriptor(hbaseTableName)
-    if (! ha.tableExists(hbaseTableName)) {
-      htable.addFamily(new HColumnDescriptor("output"))
-      ha.createTable(htable)
-    }
 
+    val images = Image.fromHBase(sc)
+    println("nfiles: %s".format(images.count()))
 
-    val pngFiles = sc.binaryFiles("hdfs:///nist/NISTSpecialDatabase4GrayScaleImagesofFIGS/sd04/png_txt/figs_0")
-    		  .filter(_._1.endsWith(".png"))
-    val nfiles = pngFiles.count()
-    println("nfiles: %s".format(nfiles))
-    val mindtctResults = pngFiles.map(run_mindtct)
-    val puts = mindtctResults.map(getPut)
-    puts.foreachPartition{
-      iterOfPut =>
-      val conn = hbaseConnection
-      try {
-	val table = conn.getTable(hbaseTableName)
-	table.put(iterOfPut.toList.asJava)
-      } finally { conn.close }
-    }
+    val mindtcts = images.mapPartitions(_.map(Mindtct.run))
+    Mindtct.toHBase(mindtcts)
 
   }
 }
