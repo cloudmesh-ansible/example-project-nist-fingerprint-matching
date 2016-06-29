@@ -86,8 +86,8 @@ object HBaseAPI {
   def createTable(ha: Admin, name: String, columns: Array[String]): HTableDescriptor = {
     val tableName = getTableName(name)
     val table     = new HTableDescriptor(tableName)
+      .addFamily(new HColumnDescriptor(name))
     if (! ha.tableExists(tableName)) {
-      columns.foreach { columnName => table.addFamily(new HColumnDescriptor(columnName)) }
       ha.createTable(table)
     }
     table
@@ -145,8 +145,21 @@ object Image {
   }
 
 
+  def createHBaseTable() {
+    val conn  = HBaseAPI.Connection
+    val admin = conn.getAdmin
+
+    try HBaseAPI.createTable(admin, Image.tableName, Image.hbaseColumns.toArray)
+    finally {
+      admin.close()
+      conn.close()
+    }
+  }
+
+
   def toHBase(rdd: RDD[Image]) {
 
+    println("Adding %s images to hbase".format(rdd.count))
     rdd.toHBaseTable(Image.tableName)
       .inColumnFamily(Image.tableName)
       .save()
@@ -268,14 +281,22 @@ object LoadData {
 
   def loadImageList(checksums: MD5Path): Array[(PngPath, MetadataPath)] = {
 
+    val prefix = new File(checksums)
+      .getAbsoluteFile
+      .getParentFile
+      .getParentFile
+      .getAbsolutePath
+
     val grouped = readLines(new File(checksums))
       .map(_.split(" ").last)
       .map(new File(_).toString)
       .groupBy(_.split('.')(0))
 
+    val path: (String => String) = name => new File(prefix, name).getAbsolutePath
+
     grouped.keys.map{k =>
       val v = grouped.get(k).get
-      (v(0), v(1))
+      (path(v(0)), path(v(1)))
     }.toArray
 
   }
@@ -286,12 +307,15 @@ object LoadData {
     val conf = new SparkConf().setAppName("Fingerprint.LoadData")
     val sc = new SparkContext(conf)
 
+    Image.createHBaseTable()
+
     val checksum_path = args(0)
     println("Reading paths from: %s".format(checksum_path.toString))
     val imagepaths = loadImageList(checksum_path)
     val images = sc.parallelize(imagepaths)
       .map(paths => Image.fromFiles(paths._1, paths._2))
     Image.toHBase(images)
+    println("Done")
 
   }
 
