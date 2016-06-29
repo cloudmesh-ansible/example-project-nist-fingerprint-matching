@@ -28,6 +28,9 @@ import java.nio.file.Paths
 import java.lang.System.{getenv}
 
 
+/********************************************************************** Utilities */
+
+
 object Util {
 
   /* shamelessly adapted from:
@@ -92,6 +95,8 @@ object HBaseAPI {
 }
 
 
+/********************************************************************** Image */
+
 case class Image(
   uuid: String = UUID.randomUUID().toString,
   Gender: String,
@@ -118,32 +123,6 @@ object Image {
       History = gcm(2),
       Png = Files.readAllBytes(png))
 
-  }
-
-
-  def saveHBase(sc: SparkContext, images: RDD[Image]) {
-
-    images.toHBaseTable(tableName)
-      .toColumns("uuid", "gender", "class", "history", "png")
-
-  }
-
-
-  def getPut(image: Image): Put = {
-    new Put(image.uuid.getBytes)
-      .addColumn(tableName.getBytes, "gender".getBytes, image.Gender.getBytes)
-      .addColumn(tableName.getBytes, "class".getBytes, image.Class.getBytes)
-      .addColumn(tableName.getBytes, "history".getBytes, image.History.getBytes)
-      .addColumn(tableName.getBytes, "png".getBytes, image.Png)
-  }
-
-  // TODO
-  // def fromHBase(conn: Connection): Image = {
-  // }
-
-
-  def getTable(conn: Connection): Table = {
-    HBaseAPI.getTable(conn, tableName)
   }
 
 
@@ -194,6 +173,8 @@ object Image {
 
 }
 
+
+/********************************************************************** Mindtct */
 
 case class Mindtct(
   uuid: String = UUID.randomUUID().toString,
@@ -297,7 +278,7 @@ object Mindtct {
 }
 
 
-
+/********************************************************************** Load data */
 
 object LoadData {
 
@@ -332,6 +313,7 @@ object LoadData {
 
 }
 
+/********************************************************************** Run Mindtct */
 
 object RunMindtct {
 
