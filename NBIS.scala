@@ -318,7 +318,7 @@ object LoadData {
 object RunMindtct {
 
   def main(args: Array[String]) {
-    val conf = new SparkConf().setAppName("MINDTCT")
+    val conf = new SparkConf().setAppName("Fingerprint.mindict")
     val sc = new SparkContext(conf)
 
 
