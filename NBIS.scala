@@ -83,6 +83,11 @@ object HBaseAPI {
   }
 
 
+  def tableExists(ha: Admin, tableName: String): Boolean = {
+    val name = getTableName(tableName)
+    ha.tableExists(name)
+  }
+
   def createTable(ha: Admin, name: String, columns: Array[String]): HTableDescriptor = {
     val tableName = getTableName(name)
     val table     = new HTableDescriptor(tableName)
@@ -91,6 +96,16 @@ object HBaseAPI {
       ha.createTable(table)
     }
     table
+  }
+
+  def dropTable(ha: Admin, tableName: String) {
+    if (tableExists(ha, tableName)) {
+      val name = getTableName(tableName)
+      println("Disabling table %s".format(tableName))
+      ha.disableTable(name)
+      println("Deleting table %s".format(tableName))
+      ha.deleteTable(name)
+    }
   }
 
 
@@ -154,6 +169,19 @@ object Image {
       admin.close()
       conn.close()
     }
+  }
+
+
+  def dropHBaseTable() {
+    val conn  = HBaseAPI.Connection
+    val admin = conn.getAdmin
+
+    try HBaseAPI.dropTable(admin, tableName)
+    finally {
+      admin.close()
+      conn.close()
+    }
+
   }
 
 
@@ -307,6 +335,7 @@ object LoadData {
     val conf = new SparkConf().setAppName("Fingerprint.LoadData")
     val sc = new SparkContext(conf)
 
+    Image.dropHBaseTable()
     Image.createHBaseTable()
 
     val checksum_path = args(0)
