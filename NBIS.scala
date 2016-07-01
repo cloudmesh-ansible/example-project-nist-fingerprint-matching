@@ -5,7 +5,6 @@ import java.util.UUID
 
 import org.apache.hadoop.hbase.{HBaseConfiguration, HTableDescriptor, HColumnDescriptor, TableName}
 import org.apache.hadoop.hbase.client.{Admin, Connection, ConnectionFactory, Table, Put}
-import org.apache.hadoop.hbase.mapreduce.TableInputFormat
 import org.apache.hadoop.hbase.util.Bytes
 
 import it.nerdammer.spark.hbase._
