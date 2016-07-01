@@ -325,7 +325,9 @@ object LoadData {
     grouped.keys.map{k =>
       val v = grouped.get(k).get
       (path(v(0)), path(v(1)))
-    }.toArray
+    }
+      .filter{case (mdpath, pngpath) => new File(mdpath).isFile && new File(pngpath).isFile}
+      .toArray
 
   }
 
