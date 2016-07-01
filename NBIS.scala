@@ -318,7 +318,7 @@ object LoadData {
     val grouped = readLines(new File(checksums))
       .map(_.split(" ").last)
       .map(new File(_).toString)
-      .groupBy(_.split('.')(0))
+      .groupBy(_.split('.').head)
 
     val path: (String => String) = name => new File(prefix, name).getAbsolutePath
 
