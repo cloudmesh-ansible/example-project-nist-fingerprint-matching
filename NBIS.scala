@@ -343,8 +343,12 @@ object LoadData {
     val checksum_path = args(0)
     println("Reading paths from: %s".format(checksum_path.toString))
     val imagepaths = loadImageList(checksum_path)
+    println("Got %s images".format(imagepaths.length))
+    imagepaths.foreach(println)
+    println("Reading files into RDD")
     val images = sc.parallelize(imagepaths)
       .map(paths => Image.fromFiles(paths._1, paths._2))
+    println("Saving to HBase")
     Image.toHBase(images)
     println("Done")
 
