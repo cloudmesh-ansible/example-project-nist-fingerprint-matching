@@ -239,4 +239,4 @@ This is the same as the local submission, but add::
 ############
 
 
-.. [1] This overview section was originally authored by Afzal Godil (NIST) and Wo Chang (NIST) as part of the NIST Big Data Public Working Group draft *Possible Big Data Use Cases Implementation using NBDRA*
+.. [1] This overview section was adapted from the NIST Big Data Public Working Group draft *Possible Big Data Use Cases Implementation using NBDRA* authored by Afzal Godil and Wo Chang
