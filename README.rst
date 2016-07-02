@@ -18,7 +18,7 @@ Work-in-progress
 
 
 ********
-Overview
+Overview [1]_
 ********
 
 ==============
@@ -257,3 +257,12 @@ You can run the analysis by::
       --conf spark.executor.extraClassPath=$(hbase classpath) \
       --class MINDTCT \
       target/scala-2.10/nbis_2.10-1.0.jar
+
+
+
+############
+ References
+############
+
+
+.. [1] This overview section was originally authored by Afzal Godil (NIST) and Wo Chang (NIST) as part of the NIST Big Data Public Working Group draft *Possible Big Data Use Cases Implementation using NBDRA*
