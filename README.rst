@@ -235,32 +235,6 @@ This is the same as the local submission, but add::
 
 
 ############
- DEPRECATED
-############
-
-At this point:
-
-- The database will be on the local filesystem of the frontends in ``/tmp/nist``
-- The database will be on HDFS under ``/nist``
-- The NBIS tools will be installed on all the hadoop nodes under ``/usr/local``
-- Spark and HBase will be available to use
-- The example analysis code will be deployed to the ``hadoop`` user's home directory
-
-Log into the frontend node and switch to the ``hadoop`` user.
-You can run the analysis by::
-
-  $ sbt package
-  $ spark-submit \
-      --deploy-mode cluster \
-      --master yarn \
-      --driver-class-path $(hbase classpath) \
-      --conf spark.executor.extraClassPath=$(hbase classpath) \
-      --class MINDTCT \
-      target/scala-2.10/nbis_2.10-1.0.jar
-
-
-
-############
  References
 ############
 
