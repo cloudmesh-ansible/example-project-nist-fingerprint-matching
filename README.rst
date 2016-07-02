@@ -167,6 +167,73 @@ Installation
 
 
 
+####################
+ Build Instructions
+####################
+
+These instructions are for manually building and bundling the source
+code for loading the images into HBase and running the analysis::
+
+  $ sbt package
+  $ sbt assembly
+
+
+##################
+Running with Spark
+##################
+
+After building, the target jarfile to submit is located at::
+
+  target/scala-2.10/NBIS-assembly-1.0.jar
+
+
+When submitting, you need to tell Spark to provide HBase in the execution classpath using::
+
+  --driver-class-path $(hbase classpath)
+
+************
+ Components
+************
+
+There are two components:
+
+#. Loading the image data into HBase
+#. Comparing a probe set to the gallery
+
+
+In the command below the ``$MAIN_CLASS`` and ``$MAIN_CLASS_ARGS`` configure which component two run.
+The possible configurations are
+
+- ``MAIN_CLASS=LoadData``
+
+  This runs the component that loads the data from local filesystem
+  into HBase.  It require one argument: the path to the checksum file
+  from which the list of images and their metadata files is extracted. For example::
+
+    MAIN_CLASS_ARGS=/tmp/nist/NISTSpecialDatabase4GrayScaleImagesofFIGS/sd04/sd04_md5.lst
+
+   
+********************************
+ Local Submission (for testing)
+********************************
+
+::
+
+   spark-submit \
+     --driver-class-path $(hbase classpath) \
+     --class $MAIN_CLASS \
+     target/scala-2.10/NBIS-assembly-1.0.jar \
+     $MAIN_CLASS_ARGS
+
+*************************************
+ Cluster Submission (for production)
+*************************************
+
+This is the same as the local submission, but add::
+
+  --master yarn --deploy-mode cluster
+
+
 ############
  DEPRECATED
 ############
