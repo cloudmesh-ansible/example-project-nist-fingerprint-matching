@@ -375,7 +375,6 @@ object RunMindtct {
     val conf = new SparkConf().setAppName("Fingerprint.mindtct")
     val sc = new SparkContext(conf)
 
-
     val images = Image.fromHBase(sc)
     println("nfiles: %s".format(images.count()))
 
