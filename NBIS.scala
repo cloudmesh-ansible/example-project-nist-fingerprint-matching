@@ -379,6 +379,9 @@ object RunMindtct {
     val images = Image.fromHBase(sc)
     println("nfiles: %s".format(images.count()))
 
+    Mindtct.dropHBaseTable()
+    Mindtct.createHBaseTable()
+
     val mindtcts = images.mapPartitions(_.map(Mindtct.run))
     Mindtct.toHBase(mindtcts)
 
