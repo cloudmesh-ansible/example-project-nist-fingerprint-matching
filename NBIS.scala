@@ -312,6 +312,52 @@ object Mindtct extends HBaseInteraction[Mindtct] {
 }
 
 
+/********************************************************************* groups (eg "probe", "gallery") */
+
+case class Group(
+  uuid: String = UUID.randomUUID().toString,
+  image: String,
+  group: String
+)
+
+
+object Group extends HBaseInteraction[Group] {
+
+  type TupleT = (String, String, String)
+  val tableName = "Group"
+  val hbaseColumns = Seq("image", "group")
+
+
+  def toHBase(rdd: RDD[Group]) {
+    rdd.toHBaseTable(tableName)
+      .inColumnFamily(tableName)
+      .save()
+  }
+
+  def fromHBase(sc: SparkContext): RDD[Group] = {
+    sc.hbaseTable[Group](tableName)
+      .inColumnFamily(tableName)
+  }
+
+
+
+  import HBaseSparkConnector._
+
+
+  implicit def HBaseWriter: FieldWriter[Group] = new FieldWriterProxy[Group, TupleT] {
+    override def convert(m: Group) = (m.uuid, m.image, m.group)
+    override def columns = hbaseColumns
+  }
+
+  implicit def HBaseReader: FieldReader[Group] = new FieldReaderProxy[TupleT, Group] {
+    override def convert(d: TupleT) = Group(d._1, d._2, d._3)
+    override def columns = hbaseColumns
+  }
+
+
+}
+
+
 /********************************************************************** Load data */
 
 object LoadData {
@@ -387,3 +433,36 @@ object RunMindtct {
   }
 }
 	  
+
+/********************************************************************** Group into "probe", "gallery" */
+
+object RunGroup {
+
+  def main(args: Array[String]) {
+    val probeName = args(0)
+    val percProbe = args(1).toDouble
+    val galleryName = args(2)
+    val percGallery = args(3).toDouble
+
+    val conf = new SparkConf().setAppName("Fingerprint.partition")
+    val sc = new SparkContext(conf)
+
+    val imageKeys = Image.fromHBase(sc).map(_.uuid)
+    println("Partitioning %s images".format(imageKeys.count))
+
+    val probeKeys = imageKeys.sample(withReplacement = false, fraction = percProbe)
+    val galleryKeys = imageKeys.sample(withReplacement = false, fraction = percGallery)
+    println("Probe: %s\nGallery: %s".format(probeKeys.count, galleryKeys.count))
+
+    val probes = probeKeys.map(id => Group(image=id, group=probeName))
+    val gallery = galleryKeys.map(id => Group(image=id, group=galleryName))
+
+    Group.dropHBaseTable()
+    Group.createHBaseTable()
+
+    Group.toHBase(probes)
+    Group.toHBase(gallery)
+
+  }
+
+}
