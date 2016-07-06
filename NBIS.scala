@@ -97,6 +97,19 @@ object HBaseAPI {
     table
   }
 
+  def createTable(tableName: String, columns: Seq[String]) {
+
+    val conn  = Connection
+    val admin = conn.getAdmin
+
+    try createTable(admin, tableName, columns.toArray)
+    finally {
+      admin.close()
+      conn.close()
+    }
+
+  }
+
   def dropTable(ha: Admin, tableName: String) {
     if (tableExists(ha, tableName)) {
       val name = getTableName(tableName)
@@ -104,6 +117,17 @@ object HBaseAPI {
       ha.disableTable(name)
       println("Deleting table %s".format(tableName))
       ha.deleteTable(name)
+    }
+  }
+
+  def dropTable(tableName: String) {
+    val conn = Connection
+    val admin = conn.getAdmin
+
+    try dropTable(admin, tableName)
+    finally {
+      admin.close
+      conn.close
     }
   }
 
@@ -124,6 +148,19 @@ object HBaseSparkConnector {
 }
 
 
+trait HBaseInteraction[T] {
+  val tableName: String
+  val hbaseColumns: Seq[String]
+
+  def createHBaseTable(): Unit = HBaseAPI.createTable(tableName, hbaseColumns)
+  def dropHBaseTable():   Unit = HBaseAPI.dropTable(tableName)
+
+  def toHBase(rdd: RDD[T]): Unit
+  def fromHBase(sc: SparkContext): RDD[T]
+
+}
+
+
 /********************************************************************** Image */
 
 case class Image(
@@ -134,7 +171,7 @@ case class Image(
   Png: Array[Byte])
 
 
-object Image {
+object Image extends HBaseInteraction[Image] {
 
   type TupleT = (String, String, String, String, Array[Byte])
 
@@ -155,31 +192,6 @@ object Image {
       Class = gcm(1),
       History = gcm(2),
       Png = readFileToByteArray(new File(png)))
-
-  }
-
-
-  def createHBaseTable() {
-    val conn  = HBaseAPI.Connection
-    val admin = conn.getAdmin
-
-    try HBaseAPI.createTable(admin, Image.tableName, Image.hbaseColumns.toArray)
-    finally {
-      admin.close()
-      conn.close()
-    }
-  }
-
-
-  def dropHBaseTable() {
-    val conn  = HBaseAPI.Connection
-    val admin = conn.getAdmin
-
-    try HBaseAPI.dropTable(admin, tableName)
-    finally {
-      admin.close()
-      conn.close()
-    }
 
   }
 
@@ -231,7 +243,7 @@ case class Mindtct(
   xyt: String
 )
 
-object Mindtct {
+object Mindtct extends HBaseInteraction[Mindtct] {
 
   type TupleT = (String, String, Array[Byte], String, String, String, String, String, String, String)
 
