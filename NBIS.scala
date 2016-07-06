@@ -253,7 +253,7 @@ object Mindtct extends HBaseInteraction[Mindtct] {
 
   def toHBase(rdd: RDD[Mindtct]) {
     rdd.toHBaseTable(tableName)
-         .inColumnFamily(tableName)
+      .inColumnFamily(tableName)
       .save()
   }
 
