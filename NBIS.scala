@@ -343,6 +343,31 @@ object BOZORTH3 extends HBaseInteraction[BOZORTH3] {
   val tableName = "Bozorth3"
   val hbaseColumns = Seq("probe", "gallery", "score")
 
+  def run(pair: (Mindtct, Mindtct)): BOZORTH3 = {
+
+    val probe = pair._1
+    val gallery = pair._2
+    val workarea = Util.createTempDir(namePrefix = "bozorth3_" + probe.uuid + "_" + gallery.uuid)
+    val probeFile =   new File(workarea, "probe-%s.xyt".format(probe.uuid))
+    val galleryFile = new File(workarea, "gallery-%s.xyt".format(gallery.uuid))
+
+    try {
+      writeStringToFile(probeFile, probe.xyt)
+      writeStringToFile(galleryFile, gallery.xyt)
+
+      val bozorth3 = Seq("bozorth3", probeFile.getAbsolutePath, galleryFile.getAbsolutePath)
+      val score = bozorth3.!!.trim.toInt
+
+      BOZORTH3(
+        probe = probe.uuid,
+        gallery = gallery.uuid,
+        score = score
+      )
+
+    } finally deleteDirectory(workarea)
+
+  }
+
   import HBaseSparkConnector._
 
 
@@ -474,33 +499,6 @@ object RunGroup {
 
 object RunBOZORTH3 {
 
-  def runBOZORTH3(pair: (Mindtct, Mindtct)): BOZORTH3 = {
-
-    val probe = pair._1
-    val gallery = pair._2
-    val workarea = Util.createTempDir(namePrefix = "bozorth3_" + probe.uuid + "_" + gallery.uuid)
-    val probeFile =   new File(workarea, "probe-%s.xyt".format(probe.uuid))
-    val galleryFile = new File(workarea, "gallery-%s.xyt".format(gallery.uuid))
-
-    try {
-      writeStringToFile(probeFile, probe.xyt)
-      writeStringToFile(galleryFile, gallery.xyt)
-
-      val bozorth3 = Seq("bozorth3", probeFile.getAbsolutePath, galleryFile.getAbsolutePath)
-      val score = bozorth3.!!.trim.toInt
-
-      BOZORTH3(
-        probe = probe.uuid,
-        gallery = gallery.uuid,
-        score = score
-      )
-
-    } finally deleteDirectory(workarea)
-
-  }
-
-
-
   def main(args: Array[String]) {
 
     val probeName = args(0)
@@ -531,7 +529,7 @@ object RunBOZORTH3 {
     pairs.foreach{ case (x,y) => println(s"P: ${x.uuid} -> G: ${y.uuid}") }
 
     println("Computing BOZORTH3 scores")
-    val scores = pairs.map(runBOZORTH3)
+    val scores = pairs.map(BOZORTH3.run)
     println(s"Scores ${scores.count}")
     scores.collect.foreach{b => println(s"${b.probe} -> ${b.gallery}: ${b.score}")}
 
