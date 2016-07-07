@@ -4,7 +4,7 @@ import java.io.File
 import java.util.UUID
 
 import org.apache.hadoop.hbase.{HBaseConfiguration, HTableDescriptor, HColumnDescriptor, TableName}
-import org.apache.hadoop.hbase.client.{Admin, Connection, ConnectionFactory, Table, Put}
+import org.apache.hadoop.hbase.client.{Admin, Connection, ConnectionFactory, Table, Put, Get, Result}
 import org.apache.hadoop.hbase.util.Bytes
 
 import it.nerdammer.spark.hbase._
@@ -18,7 +18,7 @@ import scala.sys.process._
 import scala.collection.JavaConverters._
 
 import org.apache.commons.io.FilenameUtils
-import org.apache.commons.io.FileUtils.{deleteDirectory, readLines, readFileToString, readFileToByteArray, writeByteArrayToFile}
+import org.apache.commons.io.FileUtils.{deleteDirectory, readLines, readFileToString, readFileToByteArray, writeByteArrayToFile, writeStringToFile}
 import org.apache.commons.io.filefilter.PrefixFileFilter
 
 import java.util.{UUID}
@@ -358,6 +358,51 @@ object Group extends HBaseInteraction[Group] {
 }
 
 
+/********************************************************************** BOZORTH3 results */
+
+case class BOZORTH3(
+  uuid: String = UUID.randomUUID().toString,
+  probe: String,
+  gallery: String,
+  score: Int
+)
+
+object BOZORTH3 extends HBaseInteraction[BOZORTH3] {
+
+  type TupleT = (String, String, String, Int)
+  val tableName = "Bozorth3"
+  val hbaseColumns = Seq("probe", "gallery", "score")
+
+  def toHBase(rdd: RDD[BOZORTH3]) {
+    rdd.toHBaseTable(tableName)
+      .inColumnFamily(tableName)
+      .save()
+  }
+
+  def fromHBase(sc: SparkContext): RDD[BOZORTH3] = {
+    sc.hbaseTable[BOZORTH3](tableName)
+      .inColumnFamily(tableName)
+  }
+
+
+
+  import HBaseSparkConnector._
+
+
+  implicit def HBaseWriter: FieldWriter[BOZORTH3] = new FieldWriterProxy[BOZORTH3, TupleT] {
+    override def convert(m: BOZORTH3) = (m.uuid, m.probe, m.gallery, m.score)
+    override def columns = hbaseColumns
+  }
+
+  implicit def HBaseReader: FieldReader[BOZORTH3] = new FieldReaderProxy[TupleT, BOZORTH3] {
+    override def convert(d: TupleT) = BOZORTH3(d._1, d._2, d._3, d._4)
+    override def columns = hbaseColumns
+  }
+
+
+}
+
+
 /********************************************************************** Load data */
 
 object LoadData {
@@ -462,6 +507,82 @@ object RunGroup {
 
     Group.toHBase(probes)
     Group.toHBase(gallery)
+
+  }
+
+}
+
+
+/********************************************************************** run BOZORTH3 */
+
+object RunBOZORTH3 {
+
+  def runBOZORTH3(pair: (Mindtct, Mindtct)): BOZORTH3 = {
+
+    val probe = pair._1
+    val gallery = pair._2
+    val workarea = Util.createTempDir(namePrefix = "bozorth3_" + probe.uuid + "_" + gallery.uuid)
+    val probeFile =   new File(workarea, "probe-%s.xyt".format(probe.uuid))
+    val galleryFile = new File(workarea, "gallery-%s.xyt".format(gallery.uuid))
+
+    try {
+      writeStringToFile(probeFile, probe.xyt)
+      writeStringToFile(galleryFile, gallery.xyt)
+
+      val bozorth3 = Seq("bozorth3", probeFile.getAbsolutePath, galleryFile.getAbsolutePath)
+      val score = bozorth3.!!.trim.toInt
+
+      BOZORTH3(
+        probe = probe.uuid,
+        gallery = gallery.uuid,
+        score = score
+      )
+
+    } finally deleteDirectory(workarea)
+
+  }
+
+
+
+  def main(args: Array[String]) {
+
+    val probeName = args(0)
+    val galleryName = args(1)
+
+    val conf = new SparkConf().setAppName("Fingerprint.bozorth3")
+    val sc = new SparkContext(conf)
+
+    val groups = Group.fromHBase(sc).filter(g => g.group == probeName || g.group == galleryName)
+
+    println("Groups %s".format(groups.count))
+    groups.foreach{g => println("%s %s".format(g.image, g.group))}
+
+    val mindtcts = Mindtct.fromHBase(sc)
+      .cartesian(groups)
+      .filter{ case (m, g) => m.image == g.image }
+      .map{ case (m, g) => (g.group, m) }
+    val probes = mindtcts.filter(_._1 == probeName).map(_._2)
+    val gallery = mindtcts.filter(_._1 == galleryName).map(_._2)
+
+    println(s"Probes ${probes.count}")
+    probes.foreach(x => println(x.uuid))
+    println(s"Gallery ${gallery.count}")
+    gallery.foreach(x => println(x.uuid))
+
+    val pairs = probes.cartesian(gallery)
+    println(s"Pairs ${pairs.count}")
+    pairs.foreach{ case (x,y) => println(s"P: ${x.uuid} -> G: ${y.uuid}") }
+
+    println("Computing BOZORTH3 scores")
+    val scores = pairs.map(runBOZORTH3)
+    println(s"Scores ${scores.count}")
+    scores.collect.foreach{b => println(s"${b.probe} -> ${b.gallery}: ${b.score}")}
+
+    println("Saving to HBase")
+    BOZORTH3.dropHBaseTable()
+    BOZORTH3.createHBaseTable()
+    BOZORTH3.toHBase(scores)
+
 
   }
 
