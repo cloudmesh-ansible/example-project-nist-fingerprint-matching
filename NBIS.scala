@@ -16,6 +16,7 @@ import org.apache.spark.rdd._
 import org.apache.spark.input._
 import scala.sys.process._
 import scala.collection.JavaConverters._
+import scala.reflect.ClassTag
 
 import org.apache.commons.io.FilenameUtils
 import org.apache.commons.io.FileUtils.{deleteDirectory, readLines, readFileToString, readFileToByteArray, writeByteArrayToFile, writeStringToFile}
@@ -149,14 +150,26 @@ object HBaseSparkConnector {
 
 
 trait HBaseInteraction[T] {
+  type TupleT
   val tableName: String
   val hbaseColumns: Seq[String]
+
+  implicit def HBaseWriter: FieldWriter[T]
+  implicit def HBaseReader: FieldReader[T]
 
   def createHBaseTable(): Unit = HBaseAPI.createTable(tableName, hbaseColumns)
   def dropHBaseTable():   Unit = HBaseAPI.dropTable(tableName)
 
-  def toHBase(rdd: RDD[T]): Unit
-  def fromHBase(sc: SparkContext): RDD[T]
+  def toHBase[T: ClassTag](rdd: RDD[T])(implicit mapper: FieldWriter[T]): Unit = {
+    rdd.toHBaseTable(tableName)
+      .inColumnFamily(tableName)
+      .save()
+  }
+
+  def fromHBase[T: ClassTag](sc: SparkContext)(implicit mapper: FieldReader[T]): RDD[T] = {
+    sc.hbaseTable[T](tableName)
+      .inColumnFamily(tableName)
+  }
 
 }
 
@@ -194,23 +207,6 @@ object Image extends HBaseInteraction[Image] {
       Png = readFileToByteArray(new File(png)))
 
   }
-
-
-  def toHBase(rdd: RDD[Image]) {
-
-    println("Adding %s images to hbase".format(rdd.count))
-    rdd.toHBaseTable(Image.tableName)
-      .inColumnFamily(Image.tableName)
-      .save()
-
-  }
-
-
-  def fromHBase(sc: SparkContext): RDD[Image] = {
-    sc.hbaseTable[Image](tableName)
-      .inColumnFamily(Image.tableName)
-  }
-
 
   import HBaseSparkConnector._
 
@@ -250,18 +246,6 @@ object Mindtct extends HBaseInteraction[Mindtct] {
   val tableName = "Mindtct"
 
   val hbaseColumns = Seq("image", "brw", "dm", "hcm", "lcm", "lfm", "min", "qm", "xyt")
-
-  def toHBase(rdd: RDD[Mindtct]) {
-    rdd.toHBaseTable(tableName)
-      .inColumnFamily(tableName)
-      .save()
-  }
-
-  def fromHBase(sc: SparkContext): RDD[Mindtct] = {
-    sc.hbaseTable[Mindtct](tableName)
-      .inColumnFamily(tableName)
-  }
-
 
   import HBaseSparkConnector._
 
@@ -327,20 +311,6 @@ object Group extends HBaseInteraction[Group] {
   val tableName = "Group"
   val hbaseColumns = Seq("image", "group")
 
-
-  def toHBase(rdd: RDD[Group]) {
-    rdd.toHBaseTable(tableName)
-      .inColumnFamily(tableName)
-      .save()
-  }
-
-  def fromHBase(sc: SparkContext): RDD[Group] = {
-    sc.hbaseTable[Group](tableName)
-      .inColumnFamily(tableName)
-  }
-
-
-
   import HBaseSparkConnector._
 
 
@@ -372,19 +342,6 @@ object BOZORTH3 extends HBaseInteraction[BOZORTH3] {
   type TupleT = (String, String, String, Int)
   val tableName = "Bozorth3"
   val hbaseColumns = Seq("probe", "gallery", "score")
-
-  def toHBase(rdd: RDD[BOZORTH3]) {
-    rdd.toHBaseTable(tableName)
-      .inColumnFamily(tableName)
-      .save()
-  }
-
-  def fromHBase(sc: SparkContext): RDD[BOZORTH3] = {
-    sc.hbaseTable[BOZORTH3](tableName)
-      .inColumnFamily(tableName)
-  }
-
-
 
   import HBaseSparkConnector._
 
@@ -466,13 +423,13 @@ object RunMindtct {
     val conf = new SparkConf().setAppName("Fingerprint.mindtct")
     val sc = new SparkContext(conf)
 
-    val images = Image.fromHBase(sc)
+    val images = Image.fromHBase[Image](sc)
     println("nfiles: %s".format(images.count()))
 
     Mindtct.dropHBaseTable()
     Mindtct.createHBaseTable()
 
-    val mindtcts = images.mapPartitions(_.map(Mindtct.run))
+    val mindtcts = images.mapPartitions(xs => xs.map(Mindtct.run))
     Mindtct.toHBase(mindtcts)
 
   }
@@ -492,7 +449,7 @@ object RunGroup {
     val conf = new SparkConf().setAppName("Fingerprint.partition")
     val sc = new SparkContext(conf)
 
-    val imageKeys = Image.fromHBase(sc).map(_.uuid)
+    val imageKeys = Image.fromHBase[Image](sc).map(_.uuid)
     println("Partitioning %s images".format(imageKeys.count))
 
     val probeKeys = imageKeys.sample(withReplacement = false, fraction = percProbe)
@@ -552,12 +509,12 @@ object RunBOZORTH3 {
     val conf = new SparkConf().setAppName("Fingerprint.bozorth3")
     val sc = new SparkContext(conf)
 
-    val groups = Group.fromHBase(sc).filter(g => g.group == probeName || g.group == galleryName)
+    val groups = Group.fromHBase[Group](sc).filter(g => g.group == probeName || g.group == galleryName)
 
     println("Groups %s".format(groups.count))
     groups.foreach{g => println("%s %s".format(g.image, g.group))}
 
-    val mindtcts = Mindtct.fromHBase(sc)
+    val mindtcts = Mindtct.fromHBase[Mindtct](sc)
       .cartesian(groups)
       .filter{ case (m, g) => m.image == g.image }
       .map{ case (m, g) => (g.group, m) }
