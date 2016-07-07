@@ -529,7 +529,7 @@ object RunBOZORTH3 {
     pairs.foreach{ case (x,y) => println(s"P: ${x.uuid} -> G: ${y.uuid}") }
 
     println("Computing BOZORTH3 scores")
-    val scores = pairs.map(BOZORTH3.run)
+    val scores = pairs.mapPartitions(seq => seq.map(BOZORTH3.run))
     println(s"Scores ${scores.count}")
     scores.collect.foreach{b => println(s"${b.probe} -> ${b.gallery}: ${b.score}")}
 
