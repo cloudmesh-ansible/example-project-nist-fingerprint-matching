@@ -120,6 +120,19 @@ We use the following NIST dataset for the study:
 
 
 ############
+ Quickstart
+############
+
+While detailed instructions are provided in a later section, if you
+want to get started quickly here is what you need to do:
+
+
+**WIP**
+
+..
+   TODO: quickstart
+
+############
 Installation
 ############
 
