@@ -1,0 +1,48 @@
+---
+
+- name: Deploy the dataset
+  tags: data
+  hosts: hadoopnodes
+  vars:
+    download_dir: "/tmp"
+    db_dir: "/tmp/nist"
+    db4_path: "{{ db_dir }}/{{ databases.4.url | splitext | first }}"
+    databases:
+      4:
+        url: "https://s3.amazonaws.com/nist-srd/SD4/NISTSpecialDatabase4GrayScaleImagesofFIGS.zip"
+        sha512: "8fb35d27c4bbb1e15008fbdad0fae0fc64fa0b5cff12259753ca039223cf1b789ff2362ca2889c4a9777b71f85a4101c3338155e3c6fc5f8f22fa146d21e941b"
+
+  tasks:
+
+    - name: prepare the data directory
+      file:
+        path: "{{ item }}"
+        state: directory
+      with_items:
+        - "{{ download_dir }}"
+        - "{{ db_dir }}"
+
+    - name: download
+      get_url:
+        url: "{{ databases.4.url }}"
+        checksum: "sha512:{{ databases.4.sha512 }}"
+        dest: "{{ download_dir }}"
+        timeout: 60
+
+    - name: extract
+      become: yes
+      unarchive:
+        src: "{{ download_dir }}/{{ databases.4.url | basename }}"
+        dest: "{{ db_dir }}"
+        owner: hadoop
+        group: hadoop
+        creates: "{{ db4_path }}"
+        copy: false
+
+    - name: fix permissions
+      become: yes
+      file:
+        path: "{{ db_dir }}"
+        owner: hadoop
+        group: hadoop
+        recurse: yes
