@@ -432,7 +432,7 @@ object LoadData {
     println("Reading files into RDD")
     val images = sc.parallelize(imagepaths)
       .map(paths => Image.fromFiles(paths._1, paths._2))
-    println("Saving to HBase")
+    println(s"Saving ${images.count} images to HBase")
     Image.toHBase(images)
     println("Done")
 
