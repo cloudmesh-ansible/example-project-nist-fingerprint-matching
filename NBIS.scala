@@ -448,13 +448,18 @@ object RunMindtct {
     val conf = new SparkConf().setAppName("Fingerprint.mindtct")
     val sc = new SparkContext(conf)
 
+    println("Loading images")
     val images = Image.fromHBase[Image](sc)
     println("nfiles: %s".format(images.count()))
 
+    println("Setting up HBase tables")
     Mindtct.dropHBaseTable()
     Mindtct.createHBaseTable()
 
+    println("Running the MINDTCT program")
     val mindtcts = images.mapPartitions(xs => xs.map(Mindtct.run))
+
+    println("Saving results to HBase")
     Mindtct.toHBase(mindtcts)
 
   }
