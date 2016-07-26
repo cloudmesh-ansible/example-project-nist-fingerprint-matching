@@ -229,6 +229,7 @@ object Image extends HBaseInteraction[Image] {
 
 case class Mindtct(
   uuid: String = UUID.randomUUID().toString,
+  imageId: String,
   image: Image,
   brw: Array[Byte],
   dm: String,
@@ -242,22 +243,22 @@ case class Mindtct(
 
 object Mindtct extends HBaseInteraction[Mindtct] {
 
-  type TupleT = (String, Array[Byte], Array[Byte], String, String, String, String, String, String, String)
+  type TupleT = (String, String, Array[Byte], Array[Byte], String, String, String, String, String, String, String)
 
   val tableName = "Mindtct"
 
-  val hbaseColumns = Seq("image", "brw", "dm", "hcm", "lcm", "lfm", "min", "qm", "xyt")
+  val hbaseColumns = Seq("imageId", "image", "brw", "dm", "hcm", "lcm", "lfm", "min", "qm", "xyt")
 
   import HBaseSparkConnector._
 
   implicit def HBaseWriter: FieldWriter[Mindtct] = new FieldWriterProxy[Mindtct, TupleT] {
-    override def convert(m: Mindtct) = (m.uuid, m.image.pickle.value, m.brw, m.dm, m.hcm, m.lcm, m.lfm, m.min, m.qm, m.xyt)
+    override def convert(m: Mindtct) = (m.uuid, m.imageId, m.image.pickle.value, m.brw, m.dm, m.hcm, m.lcm, m.lfm, m.min, m.qm, m.xyt)
     override def columns = hbaseColumns
   }
 
   implicit def HBaseReader: FieldReader[Mindtct] = new FieldReaderProxy[TupleT, Mindtct] {
     override def convert(d: TupleT) =
-      Mindtct(d._1, d._2.unpickle[Image], d._3, d._4, d._5, d._6, d._7, d._8, d._9, d._10)
+      Mindtct(d._1, d._2, d._3.unpickle[Image], d._4, d._5, d._6, d._7, d._8, d._9, d._10, d._11)
     override def columns = hbaseColumns
   }
 
@@ -276,6 +277,7 @@ object Mindtct extends HBaseInteraction[Mindtct] {
       val strres = (suffix: String) => readFileToString(result(suffix))
 
       Mindtct(
+        imageId = image.uuid,
         image = image,
         brw = readFileToByteArray(result("brw")),
         dm = strres("dm"),
@@ -301,6 +303,7 @@ object Mindtct extends HBaseInteraction[Mindtct] {
 
 case class Group(
   uuid: String = UUID.randomUUID().toString,
+  mindtctId: String,
   mindtct: Mindtct,
   group: String
 )
@@ -308,20 +311,20 @@ case class Group(
 
 object Group extends HBaseInteraction[Group] {
 
-  type TupleT = (String, Array[Byte], String)
+  type TupleT = (String, String, Array[Byte], String)
   val tableName = "Group"
-  val hbaseColumns = Seq("image", "group")
+  val hbaseColumns = Seq("mindtctId", "mindtct", "group")
 
   import HBaseSparkConnector._
 
 
   implicit def HBaseWriter: FieldWriter[Group] = new FieldWriterProxy[Group, TupleT] {
-    override def convert(m: Group) = (m.uuid, m.mindtct.pickle.value, m.group)
+    override def convert(m: Group) = (m.uuid, m.mindtctId, m.mindtct.pickle.value, m.group)
     override def columns = hbaseColumns
   }
 
   implicit def HBaseReader: FieldReader[Group] = new FieldReaderProxy[TupleT, Group] {
-    override def convert(d: TupleT) = Group(d._1, d._2.unpickle[Mindtct], d._3)
+    override def convert(d: TupleT) = Group(d._1, d._2, d._3.unpickle[Mindtct], d._4)
     override def columns = hbaseColumns
   }
 
@@ -333,16 +336,18 @@ object Group extends HBaseInteraction[Group] {
 
 case class BOZORTH3(
   uuid: String = UUID.randomUUID().toString,
+  probeId: String,
   probe: Mindtct,
+  galleryId: String,
   gallery: Mindtct,
   score: Int
 )
 
 object BOZORTH3 extends HBaseInteraction[BOZORTH3] {
 
-  type TupleT = (String, Array[Byte], Array[Byte], Int)
+  type TupleT = (String, String, Array[Byte], String, Array[Byte], Int)
   val tableName = "Bozorth3"
-  val hbaseColumns = Seq("probe", "gallery", "score")
+  val hbaseColumns = Seq("probeId", "probe", "galleryId", "gallery", "score")
 
   def run(pair: (Mindtct, Mindtct)): BOZORTH3 = {
 
@@ -360,7 +365,9 @@ object BOZORTH3 extends HBaseInteraction[BOZORTH3] {
       val score = bozorth3.!!.trim.toInt
 
       BOZORTH3(
+        probeId = probe.image.uuid,
         probe = probe,
+        galleryId = gallery.image.uuid,
         gallery = gallery,
         score = score
       )
@@ -373,12 +380,12 @@ object BOZORTH3 extends HBaseInteraction[BOZORTH3] {
 
 
   implicit def HBaseWriter: FieldWriter[BOZORTH3] = new FieldWriterProxy[BOZORTH3, TupleT] {
-    override def convert(m: BOZORTH3) = (m.uuid, m.probe.pickle.value, m.gallery.pickle.value, m.score)
+    override def convert(m: BOZORTH3) = (m.uuid, m.probeId, m.probe.pickle.value, m.galleryId, m.gallery.pickle.value, m.score)
     override def columns = hbaseColumns
   }
 
   implicit def HBaseReader: FieldReader[BOZORTH3] = new FieldReaderProxy[TupleT, BOZORTH3] {
-    override def convert(d: TupleT) = BOZORTH3(d._1, d._2.unpickle[Mindtct], d._3.unpickle[Mindtct], d._4)
+    override def convert(d: TupleT) = BOZORTH3(d._1, d._2, d._3.unpickle[Mindtct], d._4, d._5.unpickle[Mindtct], d._6)
     override def columns = hbaseColumns
   }
 
@@ -489,8 +496,8 @@ object RunGroup {
     val galleryItems = allItems.sample(withReplacement = false, fraction = percGallery)
 
     println(s"Grouping ${probeItems.count} probes and ${galleryItems.count} gallery items")
-    val probes = probeItems.map(mindtct => Group(mindtct=mindtct, group=probeName))
-    val gallery = galleryItems.map(mindtct => Group(mindtct=mindtct, group=galleryName))
+    val probes = probeItems.map(mindtct => Group(mindtctId=mindtct.uuid, mindtct=mindtct, group=probeName))
+    val gallery = galleryItems.map(mindtct => Group(mindtctId=mindtct.uuid, mindtct=mindtct, group=galleryName))
 
     println("Seting up HBase")
     Group.dropHBaseTable()
@@ -538,7 +545,7 @@ object RunBOZORTH3 {
     println("Computing BOZORTH3 scores")
     val scores = pairs.mapPartitions(seq => seq.map(BOZORTH3.run))
     println(s"Scores ${scores.count}")
-    scores.collect.foreach{b => println(s"${b.probe.image.uuid} -> ${b.gallery.image.uuid}: ${b.score}")}
+    scores.foreach{b => println(s"${b.probe.image.uuid} -> ${b.gallery.image.uuid}: ${b.score}")}
 
     println("Seting up HBase")
     BOZORTH3.dropHBaseTable()
