@@ -23,9 +23,9 @@ This example shows how to deploy the NIST Fingerprint dataset_ (Special Database
 Work-in-progress
 
 
-********
-Overview [1]_
-********
+###############
+ Overview [1]_
+###############
 
 ==============
  Introduction
