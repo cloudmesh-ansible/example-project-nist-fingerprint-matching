@@ -73,7 +73,7 @@ We use the following NIST dataset for the study:
 - Apache Hadoop (with YARN)
 - Apache Spark
 - Apache HBase
-- Apache Hive
+- Apache Drill
 - Scala
 
 
@@ -87,19 +87,19 @@ We use the following NIST dataset for the study:
    #. `Big Data Stack`_
    #. `deploy.yml`_
 
-#. Prepare the dataset -- `dataset.yml`_
+#. Prepare the dataset
 
    #. adds dataset to HBase -- scala, spark, hbase
    #. partitions dataset into "probe" and "gallery"
 
-#. Run the analysis -- `analysis.yml`_, scala, spark, hbase
+#. Run the analysis
 
    #. Load the probe sete
    #. Load the gallery set
    #. Compare each image in "probe" to "gallery"
    #. Store results in HBase
 
-#. Use Hive to query
+#. Use Drill to query
 
 
 .. _deploy.yml: deploy.yml
@@ -156,11 +156,11 @@ Installation
 
 #. Launch a virtual cluster. Make sure the Ansible inventory file matches the specifications for the Big Data Stack.
 
-#. Deploy Hadoop, Spark, HBase and Hive::
+#. Deploy Hadoop, Spark, HBase and Drill::
 
      cd big-data-stack
      ansible-playbook -i <path/to/inventory.txt> play-hadoop.yml \
-       addons/spark.yml addons/hbase.yml addons/hive.yml
+       addons/spark.yml addons/hbase.yml addons/drill.yml
      cd -
 
 #. Deploy the software::
@@ -176,7 +176,7 @@ Installation
      ssh hadoop@frontend
      ./analysis.sh
 
-#. Use Hive to query
+#. Use Drill to query
 
 
 
