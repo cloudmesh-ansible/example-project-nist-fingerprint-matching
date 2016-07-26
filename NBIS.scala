@@ -448,18 +448,16 @@ object RunMindtct {
     val conf = new SparkConf().setAppName("Fingerprint.mindtct")
     val sc = new SparkContext(conf)
 
-    println("Loading images")
+    print("Loading images...")
     val images = Image.fromHBase[Image](sc)
-    println("nfiles: %s".format(images.count()))
-
-    println("Setting up HBase tables")
-    Mindtct.dropHBaseTable()
-    Mindtct.createHBaseTable()
+    println(s"${images.count}")
 
     println("Running the MINDTCT program")
     val mindtcts = images.mapPartitions(xs => xs.map(Mindtct.run))
 
-    println("Saving results to HBase")
+    println(s"Saving ${mindtcts.count} results to HBase")
+    Mindtct.dropHBaseTable()
+    Mindtct.createHBaseTable()
     Mindtct.toHBase(mindtcts)
 
   }
@@ -479,19 +477,25 @@ object RunGroup {
     val conf = new SparkConf().setAppName("Fingerprint.partition")
     val sc = new SparkContext(conf)
 
-    val imageKeys = Image.fromHBase[Image](sc).map(_.uuid)
-    println("Partitioning %s images".format(imageKeys.count))
+    print("Loading images...")
+    val allItems = Mindtct.fromHBase[Mindtct](sc)
+    println(s"${allItems.count}")
 
-    val probeKeys = imageKeys.sample(withReplacement = false, fraction = percProbe)
-    val galleryKeys = imageKeys.sample(withReplacement = false, fraction = percGallery)
-    println("Probe: %s\nGallery: %s".format(probeKeys.count, galleryKeys.count))
+    println(s"Selecting ${percProbe * 100}% as probe items")
+    val probeItems = allItems.sample(withReplacement = false, fraction = percProbe)
 
-    val probes = probeKeys.map(id => Group(image=id, group=probeName))
-    val gallery = galleryKeys.map(id => Group(image=id, group=galleryName))
+    println(s"Selecting ${percGallery * 100}% as gallery items")
+    val galleryItems = allItems.sample(withReplacement = false, fraction = percGallery)
 
+    println(s"Grouping ${probeItems.count} probes and ${galleryItems.count} gallery items")
+    val probes = probeItems.map(mindtct => Group(image=mindtct, group=probeName))
+    val gallery = galleryItems.map(mindtct => Group(image=mindtct, group=galleryName))
+
+    println("Seting up HBase")
     Group.dropHBaseTable()
     Group.createHBaseTable()
 
+    println("Saving to HBase")
     Group.toHBase(probes)
     Group.toHBase(gallery)
 
