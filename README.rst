@@ -1,12 +1,13 @@
 
-.. sidebar:: Table of Contents
-
-   .. contents::
-      :local:
 
 ##########################
  NIST Fingerprint Example
 ##########################
+
+.. sidebar:: Table of Contents
+
+   .. contents::
+      :local:
 
 
 This example shows how to deploy the NIST Fingerprint dataset_ (Special Database 4) and tools_ (NBIS) to the cluster.
@@ -16,20 +17,20 @@ This example shows how to deploy the NIST Fingerprint dataset_ (Special Database
 .. _tools: http://www.nist.gov/itl/iad/ig/nigos.cfm
 
 
-########
+========
  Status
-########
+========
 
 Work-in-progress
 
 
-********
-Overview [1]_
-********
+===============
+ Overview [1]_
+===============
 
-==============
+--------------
  Introduction
-==============
+--------------
 
 Fingerprint recognition refers to the automated method for verifying a match between two fingerprints and that is used to identify individuals and verify their identity.
 Fingerprints (Figure 1) are the most widely used form of biometric used to identify individuals.
@@ -46,35 +47,35 @@ The automated fingerprint matching generally required the detection of different
 Based on the number of matches a proximity score (distance or similarity) can be calculated.
 
 
-============
+------------
  Algorithms
-============
+------------
 
 For this work we will use the following algorithms:
 
 - MINDTCT: The NIST minutiae detector, which automatically locates and records ridge ending and bifurcations in a fingerprint image. (http://www.nist.gov/itl/iad/ig/nbis.cfm)
 - BOZORTH3: A NIST fingerprint matching algorithm, which is a minutiae based fingerprint-matching algorithm. It can do both one-to- one and one-to- many matching operations. (http://www.nist.gov/itl/iad/ig/nbis.cfm)
 
-==========
+----------
  Datasets
-==========
+----------
 
 We use the following NIST dataset for the study:
 
 - Special Database 14 - NIST Mated Fingerprint Card Pairs 2. (http://www.nist.gov/itl/iad/ig/special_dbases.cfm)
 
 
-====================
+--------------------
  Specific Questions
-====================
+--------------------
 
 #. Match the fingerprint images from a probe set to a gallery set and report a match scores?
 #. What is the most efficient and high-throughput way to match fingerprint images from a probe set to a large fingerprint gallery set?
 
 
-===================
+-------------------
  Development Tools
-===================
+-------------------
 
 - Apache Hadoop (with YARN)
 - Apache Spark
@@ -83,9 +84,9 @@ We use the following NIST dataset for the study:
 - Scala
 
 
-========
+--------
  Method
-========
+--------
 
 #. Launch a virtual cluster
 #. Deploy the stack
@@ -114,9 +115,9 @@ We use the following NIST dataset for the study:
 .. _Big Data Stack: https://github.com/futuresystems/big-data-stack
 
 
-###############
+===============
  Prerequisites
-###############
+===============
 
 #. Python 2.7
 #. Pip
@@ -125,9 +126,9 @@ We use the following NIST dataset for the study:
 #. Cloud provider
 
 
-############
+============
  Quickstart
-############
+============
 
 While detailed instructions are provided in a later section, if you
 want to get started quickly here is what you need to do:
@@ -138,9 +139,9 @@ want to get started quickly here is what you need to do:
 ..
    TODO: quickstart
 
-############
-Installation
-############
+==============
+ Installation
+==============
 
 #. Clone this repository::
 
@@ -156,9 +157,9 @@ Installation
      pip install -r big-data-stack/requirements.txt
 
 
-#######
+=======
  Using
-#######
+=======
 
 #. Launch a virtual cluster. Make sure the Ansible inventory file matches the specifications for the Big Data Stack.
 
@@ -186,9 +187,9 @@ Installation
 
 
 
-####################
+====================
  Build Instructions
-####################
+====================
 
 These instructions are for manually building and bundling the source
 code for loading the images into HBase and running the analysis::
@@ -197,9 +198,9 @@ code for loading the images into HBase and running the analysis::
   $ sbt assembly
 
 
-##################
-Running with Spark
-##################
+====================
+ Running with Spark
+====================
 
 After building, the target jarfile to submit is located at::
 
@@ -210,9 +211,9 @@ When submitting, you need to tell Spark to provide HBase in the execution classp
 
   --driver-class-path $(hbase classpath)
 
-************
+------------
  Components
-************
+------------
 
 There are two components:
 
@@ -232,9 +233,9 @@ The possible configurations are
     MAIN_CLASS_ARGS=/tmp/nist/NISTSpecialDatabase4GrayScaleImagesofFIGS/sd04/sd04_md5.lst
 
    
-********************************
+--------------------------------
  Local Submission (for testing)
-********************************
+--------------------------------
 
 ::
 
@@ -244,9 +245,9 @@ The possible configurations are
      target/scala-2.10/NBIS-assembly-1.0.jar \
      $MAIN_CLASS_ARGS
 
-*************************************
+-------------------------------------
  Cluster Submission (for production)
-*************************************
+-------------------------------------
 
 This is the same as the local submission, but add::
 
