@@ -1,7 +1,13 @@
 
+.. sidebar:: Table of Contents
+
+   .. contents::
+      :local:
+
 ##########################
  NIST Fingerprint Example
 ##########################
+
 
 This example shows how to deploy the NIST Fingerprint dataset_ (Special Database 4) and tools_ (NBIS) to the cluster.
 
