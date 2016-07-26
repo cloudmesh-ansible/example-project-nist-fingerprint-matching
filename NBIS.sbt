@@ -11,6 +11,7 @@ val jettyOrg = ExclusionRule(organization = "org.mortbay.jetty")
 val sparkOrg = ExclusionRule(organization = "org.apache.spark")
 
 
+libraryDependencies += "org.scala-lang.modules" %% "scala-pickling" % "0.10.1"
 libraryDependencies ++= Seq(
   "org.apache.hbase" % "hbase-client" % "1.2.0",
   "org.apache.hbase" % "hbase-common" % "1.2.0",
