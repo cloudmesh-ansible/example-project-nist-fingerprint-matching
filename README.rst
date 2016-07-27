@@ -284,22 +284,66 @@ When submitting, you need to tell Spark to provide HBase in the execution classp
  Components
 ------------
 
-There are two components:
+There are four components that are run with Spark:
 
 #. Loading the image data into HBase
-#. Comparing a probe set to the gallery
+#. Running MINDTCT for ridge detection
+#. Partitioning into probe and gallery sets
+#. Running BOZORTH3 for comparing probe and gallery sets
 
 
-In the command below the ``$MAIN_CLASS`` and ``$MAIN_CLASS_ARGS`` configure which component two run.
+In the command below the ``$MAIN_CLASS`` and ``$MAIN_CLASS_ARGS`` configure which component to run and arguments passed in.
 The possible configurations are
 
 - ``MAIN_CLASS=LoadData``
 
   This runs the component that loads the data from local filesystem
-  into HBase.  It require one argument: the path to the checksum file
-  from which the list of images and their metadata files is extracted. For example::
+  into HBase.
+
+  Arguments: ``path`` (required): the path to the checksum file.
+  This is the file from which the list of images and their metadata files is extracted. For example::
 
     MAIN_CLASS_ARGS=/tmp/nist/NISTSpecialDatabase4GrayScaleImagesofFIGS/sd04/sd04_md5.lst
+
+- ``MAIN_CLASS=RunMindtct``
+
+  This runs the component to find the ridges in the images by forking
+  off the ``MINDTCT`` program to process each image and store the
+  results in HBase.
+
+  Arguments: None
+
+- ``MAIN_CLASS=RunGroup``
+
+  This subsamples the image database into "probe" and "gallery" sets.
+  You must specify how much of the full dataset to use for each set.
+  For example: 0.1% for "probe" and 1% for "gallery" below::
+
+    MAIN_CLASS_ARGS="probe 0.001 gallery 0.01"
+
+  The number of images to be included in a set is given by::
+
+    count = multiplier * total_images
+
+  Arguments:
+
+  #. ``nameProbe`` (required): the name of the probe set, **eg**: ``probe``
+  #. ``multiplierProbe`` (required): subsample the full dataset by this value, **eg**: ``0.001``
+  #. ``nameGallery`` (required): the name of the gallery set, **eg**: ``gallery``
+  #. ``multiplierGallery`` (required): subsample the full dataset by this value, **eg**: ``0.01``
+
+- ``MAIN_CLASS=RunBOZORTH3``
+
+  This applied the ``BOZORTH3`` program to the images chosed by the grouping step.
+  You must specify the names of the probe and gallery sets.
+  For example::
+
+    MAIN_CLASS_ARGS="probe gallery"
+
+  Arguments:
+
+  #. ``nameProbe`` (required): the name of the probe set, **eg**: ``probe``
+  #. ``nameGallery`` (required): the name of the gallery set, **eg**: ``gallery``
 
    
 --------------------------------
