@@ -172,7 +172,7 @@ want to get started quickly here is what you need to do.
      $ ssh ubuntu@192.168.1.100
      $ sudo su - hadoop
 
-#. Load the images data into HBase (~ FIXME minutes)::
+#. Load the images data into HBase (~ 10 minutes)::
 
      $ time spark-submit \
          --master yarn \
