@@ -1,14 +1,13 @@
 
-
-##########################
- NIST Fingerprint Example
-##########################
-
-.. sidebar:: Table of Contents
+.. sidebar:: **Table of Contents**
 
    .. contents::
       :local:
 
+
+==========================
+ NIST Fingerprint Example
+==========================
 
 This example shows how to deploy the NIST Fingerprint dataset_ (Special Database 4) and tools_ (NBIS) to the cluster.
 
@@ -73,9 +72,9 @@ We use the following NIST dataset for the study:
 #. What is the most efficient and high-throughput way to match fingerprint images from a probe set to a large fingerprint gallery set?
 
 
--------------------
+===================
  Development Tools
--------------------
+===================
 
 - Apache Hadoop (with YARN)
 - Apache Spark
@@ -84,9 +83,9 @@ We use the following NIST dataset for the study:
 - Scala
 
 
---------
+========
  Method
---------
+========
 
 #. Launch a virtual cluster
 #. Deploy the stack
