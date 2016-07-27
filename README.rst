@@ -341,9 +341,9 @@ This is the same as the local submission, but add::
   --master yarn --deploy-mode cluster
 
 
-############
+============
  References
-############
+============
 
 
 .. [1] This overview section was adapted from the NIST Big Data Public Working Group draft *Possible Big Data Use Cases Implementation using NBDRA* authored by Afzal Godil and Wo Chang
