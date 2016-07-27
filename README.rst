@@ -144,6 +144,12 @@ want to get started quickly here is what you need to do.
 **note**: We assume the login user is ``ubuntu``, you may need to adjust the ansible commands to accomodate a different user name.
 
 
+#. Clone this repository::
+
+     $ git clone --recursive git@github.com:cloudmesh/example-project-nist-fingerprint-matching
+
+   **IMPORTANT**: make sure to include the ``--recursive`` flag else you will encounter errors during deployment.
+
 #. Create a virtual environment and install the dependencies::
 
      $ virtualenv venv
