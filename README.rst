@@ -73,9 +73,9 @@ We use the following NIST dataset for the study:
 #. What is the most efficient and high-throughput way to match fingerprint images from a probe set to a large fingerprint gallery set?
 
 
-===================
- Development Tools
-===================
+=======
+ Stack
+=======
 
 - Apache Hadoop (with YARN)
 - Apache Spark
