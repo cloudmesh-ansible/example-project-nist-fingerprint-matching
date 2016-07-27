@@ -203,12 +203,14 @@ want to get started quickly here is what you need to do.
 
 #. Sample the images to select subsets as the probe and gallery images. In this case the probe set is 0.1% and the gallery set is 1% (~ FIXME minutes)::
 
-     $ time spark-submit \
-         --master yarn \
-         --deploy-mode cluster \
-         --driver-class-path $(hbase classpath) \
-         --class RunMindtct \
+     $ time spark-submit
+         --master yarn
+         --deploy-mode cluster
+         --driver-class-path $(hbase classpath)
+         --class RunGroup
          target/scala-2.10/NBIS-assembly-1.0.jar
+         probe 0.001
+         gallery 0.01
 
 #. Match the probe set to the gallery set (~ FIXME minutes)::
 
