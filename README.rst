@@ -139,13 +139,92 @@ Any instances need to be accessible via SSH and have Python 2.7 installed.
 ============
 
 While detailed instructions are provided in a later section, if you
-want to get started quickly here is what you need to do:
+want to get started quickly here is what you need to do.
+
+**note**: We assume the login user is ``ubuntu``, you may need to adjust the ansible commands to accomodate a different user name.
 
 
-**WIP**
+#. Create a virtual environment and install the dependencies::
 
-..
-   TODO: quickstart
+     $ virtualenv venv
+     $ source venv/bin/activate
+     $ pip install -r big-data-stack/requirements.txt
+
+#. Start a virtual cluster (Ubuntu 14.04) with at least three nodes and obtain the IP addresses. We assume that the cluster is homogeneous.
+#. In the ``big-data-stack`` directory, generate the ansible files using ``mk-inventory``::
+
+     $ python mk-inventory -n mycluster 192.168.1.100  192.168.1.101 192.168.1.102
+
+#. Make sure each node is accessible by ansible::
+
+     $ ansible all -o -m ping
+
+#. Deploy the stack::
+
+     $ ansible-playbook play-hadoop.yml addons/{spark,hbase,drill}.yml
+
+#. Deploy the dataset and NBIS software::
+
+     $ ansible-playbook ../{dataset,software}.yml
+
+#. Login to the first node and switch to the ``hadoop`` user::
+
+     $ ssh ubuntu@192.168.1.100
+     $ sudo su - hadoop
+
+#. Load the images data into HBase::
+
+     $ time spark-submit \
+         --master yarn \
+         --deploy-mode cluster \
+         --driver-class-path $(hbase classpath) \
+         --class LoadData \
+         target/scala-2.10/NBIS-assembly-1.0.jar \
+         /tmp/nist/NISTSpecialDatabase4GrayScaleImagesofFIGS/sd04/sd04_md5.lst
+
+#. Run MINDTCT for ridge detection::
+
+     $ time spark-submit \
+         --master yarn \
+         --deploy-mode cluster \
+         --driver-class-path $(hbase classpath) \
+         --class RunMindtct \
+         target/scala-2.10/NBIS-assembly-1.0.jar
+
+#. Sample the images to select subsets as the probe and gallery images. In this case the probe set is 0.1% and the gallery set is 1%::
+
+     $ time spark-submit \
+         --master yarn \
+         --deploy-mode cluster \
+         --driver-class-path $(hbase classpath) \
+         --class RunMindtct \
+         target/scala-2.10/NBIS-assembly-1.0.jar
+
+#. Match the probe set to the gallery set::
+
+     $ time spark-submit \
+         --master yarn \
+         --deploy-mode cluster \
+         --driver-class-path $(hbase classpath) \
+         --class RunBOZORTH3 \
+         target/scala-2.10/NBIS-assembly-1.0.jar \
+         probe gallery
+
+#. Use Drill to query::
+
+     $ sqlline -u jdbc:drill:zk=mycluster0,mycluster1,mycluster2;schema=hbase
+
+     > use hbase;
+     > SELECT
+       CONVERT_FROM(Bozorth3.Bozorth3.probeId, 'UTF8') probe,
+       CONVERT_FROM(Bozorth3.Bozorth3.galleryId, 'UTF8') gallery,
+       CONVERT_FROM(Bozorth3.Bozorth3.score, 'INT_BE') score
+       FROM Bozorth3
+       ORDER BY
+       CONVERT_FROM(Bozorth3.Bozorth3.score, 'INT_BE')
+       DESC
+       LIMIT 10
+       ;
 
 ==============
  Installation
