@@ -254,36 +254,6 @@ want to get started quickly here is what you need to do.
      pip install -r big-data-stack/requirements.txt
 
 
-=======
- Using
-=======
-
-#. Launch a virtual cluster. Make sure the Ansible inventory file matches the specifications for the Big Data Stack.
-
-#. Deploy Hadoop, Spark, HBase and Drill::
-
-     cd big-data-stack
-     ansible-playbook -i <path/to/inventory.txt> play-hadoop.yml \
-       addons/spark.yml addons/hbase.yml addons/drill.yml
-     cd -
-
-#. Deploy the software::
-
-     ansible-playbook -i <path/to/inventory.txt> software.yml
-
-#. Deploy and partition the dataset::
-
-     ansible-playbook -i <path/to/inventory.txt> dataset.yml
-
-#. Run the analysis::
-
-     ssh hadoop@frontend
-     ./analysis.sh
-
-#. Use Drill to query
-
-
-
 ====================
  Build Instructions
 ====================
