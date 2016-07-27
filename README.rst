@@ -159,11 +159,11 @@ want to get started quickly here is what you need to do.
 
      $ ansible all -o -m ping
 
-#. Deploy the stack::
+#. Deploy the stack (~ FIXME minutes)::
 
      $ ansible-playbook play-hadoop.yml addons/{spark,hbase,drill}.yml
 
-#. Deploy the dataset and NBIS software::
+#. Deploy the dataset and NBIS software (~ FIXME minutes)::
 
      $ ansible-playbook ../{dataset,software}.yml
 
@@ -172,7 +172,7 @@ want to get started quickly here is what you need to do.
      $ ssh ubuntu@192.168.1.100
      $ sudo su - hadoop
 
-#. Load the images data into HBase::
+#. Load the images data into HBase (~ FIXME minutes)::
 
      $ time spark-submit \
          --master yarn \
@@ -182,7 +182,7 @@ want to get started quickly here is what you need to do.
          target/scala-2.10/NBIS-assembly-1.0.jar \
          /tmp/nist/NISTSpecialDatabase4GrayScaleImagesofFIGS/sd04/sd04_md5.lst
 
-#. Run MINDTCT for ridge detection::
+#. Run MINDTCT for ridge detection (~ FIXME minutes)::
 
      $ time spark-submit \
          --master yarn \
@@ -191,7 +191,7 @@ want to get started quickly here is what you need to do.
          --class RunMindtct \
          target/scala-2.10/NBIS-assembly-1.0.jar
 
-#. Sample the images to select subsets as the probe and gallery images. In this case the probe set is 0.1% and the gallery set is 1%::
+#. Sample the images to select subsets as the probe and gallery images. In this case the probe set is 0.1% and the gallery set is 1% (~ FIXME minutes)::
 
      $ time spark-submit \
          --master yarn \
@@ -200,7 +200,7 @@ want to get started quickly here is what you need to do.
          --class RunMindtct \
          target/scala-2.10/NBIS-assembly-1.0.jar
 
-#. Match the probe set to the gallery set::
+#. Match the probe set to the gallery set (~ FIXME minutes)::
 
      $ time spark-submit \
          --master yarn \
