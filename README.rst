@@ -119,11 +119,19 @@ We use the following NIST dataset for the study:
  Prerequisites
 ===============
 
+In order to run this example, you need to have the following on your system:
+
 #. Python 2.7
 #. Pip
 #. Virtualenv
 #. Git
+
+Additionally, you should have access to a cloud provider (such as OpenStack or Amazon Web Services).
+Any instances need to be accessible via SSH and have Python 2.7 installed.
+
 #. Cloud provider
+
+**Note**: Your controller node needs to be able to run Ansible.
 
 
 ============
