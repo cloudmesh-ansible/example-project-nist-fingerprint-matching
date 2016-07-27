@@ -5,9 +5,9 @@
       :local:
 
 
-==========================
- NIST Fingerprint Example
-==========================
+=====
+About
+=====
 
 This example shows how to deploy the NIST Fingerprint dataset_ (Special Database 4) and tools_ (NBIS) to the cluster.
 Additionally, this demonstrates how to use Apache Spark to perform a fingerprint matching using the NBIS tools, store the results in HBase and use Apache Drill to query the results.
