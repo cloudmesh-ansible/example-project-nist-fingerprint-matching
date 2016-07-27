@@ -144,6 +144,10 @@ want to get started quickly here is what you need to do.
 **note**: We assume the login user is ``ubuntu``, you may need to adjust the ansible commands to accomodate a different user name.
 
 
+#. Have an account on github.com
+
+#. Upload you public ssh key to `github.com <https://github.com/settings/keys>`_
+
 #. Clone this repository::
 
      $ git clone --recursive git@github.com:cloudmesh/example-project-nist-fingerprint-matching
