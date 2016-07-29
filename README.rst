@@ -173,7 +173,7 @@ want to get started quickly here is what you need to do.
 
      $ ansible-playbook play-hadoop.yml addons/{spark,hbase,drill}.yml
 
-#. Deploy the dataset and NBIS software (~ FIXME minutes)::
+#. Deploy the dataset and NBIS software (~ 10 minutes)::
 
      $ ansible-playbook ../{software,dataset}.yml
 
