@@ -169,7 +169,7 @@ want to get started quickly here is what you need to do.
 
      $ ansible all -o -m ping
 
-#. Deploy the stack (~ FIXME minutes)::
+#. Deploy the stack (~ 20 minutes)::
 
      $ ansible-playbook play-hadoop.yml addons/{spark,hbase,drill}.yml
 
