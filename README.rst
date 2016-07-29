@@ -175,7 +175,7 @@ want to get started quickly here is what you need to do.
 
 #. Deploy the dataset and NBIS software (~ FIXME minutes)::
 
-     $ ansible-playbook ../{dataset,software}.yml
+     $ ansible-playbook ../{software,dataset}.yml
 
 #. Login to the first node and switch to the ``hadoop`` user::
 
