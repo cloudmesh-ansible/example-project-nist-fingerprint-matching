@@ -5,10 +5,10 @@ import java.util.UUID
 
 import org.apache.hadoop.hbase.{HBaseConfiguration, HTableDescriptor, HColumnDescriptor, TableName}
 import org.apache.hadoop.hbase.client.{Admin, Connection, ConnectionFactory, Table, Put, Get, Result}
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable
+import org.apache.hadoop.hbase.mapreduce.{TableOutputFormat,TableInputFormat}
 import org.apache.hadoop.hbase.util.Bytes
-
-import it.nerdammer.spark.hbase._
-import it.nerdammer.spark.hbase.conversion._
+import org.apache.hadoop.mapreduce.Job
 
 import org.apache.spark._
 import org.apache.spark.SparkContext._
@@ -133,19 +133,31 @@ object HBaseAPI {
     }
   }
 
-
-}
-
-
-object HBaseSparkConnector {
-
-  implicit def byteArrayWriter: FieldWriter[Array[Byte]] = new SingleColumnFieldWriter[Array[Byte]] {
-    override def mapColumn(data: Array[Byte]): Option[Array[Byte]] = Some(data)
+  def put(put: Put, tableName: String): Unit = {
+    val conn = Connection
+    val table = getTable(conn, tableName)
+    table.put(put)
   }
 
-  implicit def byteArrayReader: FieldReader[Array[Byte]] = new SingleColumnConcreteFieldReader[Array[Byte]] {
-    def columnMap(cols: Array[Byte]): Array[Byte] = cols
+  def put(puts: Array[Put], tableName: String, chunkSize: Int = 500): Unit = {
+    val conn = Connection
+    val table = getTable(conn, tableName)
+
+    puts.sliding(chunkSize).foreach { iter =>
+      val chunk = iter.toList
+      println(s"Adding chunk, size ${chunk.size}")
+      val results: Array[Object] = new Array[Object](chunk.size)
+      table.batch(chunk.toList, results)
+    }
+
   }
+
+  def put(puts: Iterator[Put], tableName: String): Unit = {
+    val conn = Connection
+    val table = getTable(conn, tableName)
+    puts.foreach(table.put)
+  }
+
 
 }
 
@@ -155,22 +167,55 @@ trait HBaseInteraction[T] {
   val tableName: String
   val hbaseColumns: Seq[String]
 
-  implicit def HBaseWriter: FieldWriter[T]
-  implicit def HBaseReader: FieldReader[T]
-
   def createHBaseTable(): Unit = HBaseAPI.createTable(tableName, hbaseColumns)
   def dropHBaseTable():   Unit = HBaseAPI.dropTable(tableName)
 
-  def toHBase[T: ClassTag](rdd: RDD[T])(implicit mapper: FieldWriter[T]): Unit = {
-    rdd.toHBaseTable(tableName)
-      .inColumnFamily(tableName)
-      .save()
+  def toHBase(rdd: RDD[T]): Unit = {
+
+    val cfg = HBaseConfiguration.create()
+    cfg.set(TableOutputFormat.OUTPUT_TABLE, tableName)
+    val job = Job.getInstance(cfg)
+    job.setOutputFormatClass(classOf[TableOutputFormat[String]])
+    rdd.map(Put).saveAsNewAPIHadoopDataset(job.getConfiguration)
+
+    // val conn = HBaseAPI.Connection
+    // val table = HBaseAPI.getTable(conn, tableName)
+    // rdd.toLocalIterator.foreach{item =>
+    //   val put = Put(item)._2
+    //   table.put(put)
+    // }
+
+    // rrd.dforeachPartition { iter =>
+    //   val cfg = HBaseConfiguration.create()
+    //   cfg.set(TableOutputFormat.OUTPUT_TABLE, tableName)
+    //   val puts = iter.map(Put).map(_._2).toIterator
+    //   HBaseAPI.put(puts, tableName)
+    // }
+
   }
 
-  def fromHBase[T: ClassTag](sc: SparkContext)(implicit mapper: FieldReader[T]): RDD[T] = {
-    sc.hbaseTable[T](tableName)
-      .inColumnFamily(tableName)
+  def convert(key: String, r: Result): T
+
+  def fromHBase(sc: SparkContext)(implicit arg0: ClassTag[T]): RDD[T] = {
+
+    val conf = HBaseConfiguration.create()
+    conf.set(TableInputFormat.INPUT_TABLE, tableName)
+    conf.setInt(TableInputFormat.SCAN_CACHEDROWS, 500)
+
+    val rdd = sc.newAPIHadoopRDD(
+      conf=conf,
+      fClass=classOf[TableInputFormat],
+      kClass=classOf[ImmutableBytesWritable],
+      vClass=classOf[Result])
+
+    rdd.map{
+      case (key, result) => convert(Bytes.toString(key.copyBytes), result)
+    }
+
   }
+
+
+  def Put(obj: T): (ImmutableBytesWritable, Put)
 
 }
 
@@ -209,16 +254,26 @@ object Image extends HBaseInteraction[Image] {
 
   }
 
-  import HBaseSparkConnector._
-
-  implicit def HBaseWriter: FieldWriter[Image] = new FieldWriterProxy[Image, TupleT] {
-    override def convert(i: Image) = (i.uuid, i.Gender, i.Class, i.History, i.Png)
-    override def columns = hbaseColumns
+  def convert(key: String, result: Result): Image = {
+    val cf = tableName.getBytes
+    Image(
+      uuid = key,
+      Gender = Bytes.toString(result.getValue(cf, "gender".getBytes)),
+      Class = Bytes.toString(result.getValue(cf, "class".getBytes)),
+      History = Bytes.toString(result.getValue(cf, "history".getBytes)),
+      Png = result.getValue(cf, "png".getBytes)
+    )
   }
 
-  implicit def HBaseReader: FieldReader[Image] = new FieldReaderProxy[TupleT, Image] {
-    override def convert(d: TupleT) = Image(d._1, d._2, d._3, d._4, d._5)
-    override def columns = hbaseColumns
+  def Put(i: Image): (ImmutableBytesWritable, Put) = {
+    val key = i.uuid.getBytes
+    val put = new Put(key)
+    put.add(tableName.getBytes, "gender".getBytes, i.Gender.getBytes)
+    put.add(tableName.getBytes, "Class".getBytes, i.Class.getBytes)
+    put.add(tableName.getBytes, "History".getBytes, i.History.getBytes)
+    put.add(tableName.getBytes, "png".getBytes, i.Png)
+    (new ImmutableBytesWritable(key), put)
+
   }
 
 
@@ -249,19 +304,38 @@ object Mindtct extends HBaseInteraction[Mindtct] {
 
   val hbaseColumns = Seq("imageId", "image", "brw", "dm", "hcm", "lcm", "lfm", "min", "qm", "xyt")
 
-  import HBaseSparkConnector._
-
-  implicit def HBaseWriter: FieldWriter[Mindtct] = new FieldWriterProxy[Mindtct, TupleT] {
-    override def convert(m: Mindtct) = (m.uuid, m.imageId, m.image.pickle.value, m.brw, m.dm, m.hcm, m.lcm, m.lfm, m.min, m.qm, m.xyt)
-    override def columns = hbaseColumns
+  def convert(key: String, result: Result): Mindtct = {
+    val cf = tableName.getBytes
+    Mindtct(
+      uuid = key,
+      imageId = Bytes.toString(result.getValue(cf, "imageId".getBytes)),
+      image = result.getValue(cf, "image".getBytes).unpickle[Image],
+      brw = result.getValue(cf, "brw".getBytes),
+      dm  = Bytes.toString(result.getValue(cf, "dm".getBytes)),
+      hcm = Bytes.toString(result.getValue(cf, "hcm".getBytes)),
+      lcm = Bytes.toString(result.getValue(cf, "lcm".getBytes)),
+      lfm = Bytes.toString(result.getValue(cf, "lfm".getBytes)),
+      min = Bytes.toString(result.getValue(cf, "min".getBytes)),
+      qm  = Bytes.toString(result.getValue(cf, "qm".getBytes)),
+      xyt = Bytes.toString(result.getValue(cf, "xyt".getBytes))
+    )
   }
 
-  implicit def HBaseReader: FieldReader[Mindtct] = new FieldReaderProxy[TupleT, Mindtct] {
-    override def convert(d: TupleT) =
-      Mindtct(d._1, d._2, d._3.unpickle[Image], d._4, d._5, d._6, d._7, d._8, d._9, d._10, d._11)
-    override def columns = hbaseColumns
+  def Put(m: Mindtct): (ImmutableBytesWritable, Put) = {
+    val key = m.uuid.getBytes
+    val put = new Put(key)
+    put.add(tableName.getBytes, "imageId".getBytes, m.imageId.getBytes)
+    put.add(tableName.getBytes, "image".getBytes, m.image.pickle.value)
+    put.add(tableName.getBytes, "brw".getBytes, m.brw)
+    put.add(tableName.getBytes, "dm".getBytes, m.dm.getBytes)
+    put.add(tableName.getBytes, "hcm".getBytes, m.hcm.getBytes)
+    put.add(tableName.getBytes, "lcm".getBytes, m.lcm.getBytes)
+    put.add(tableName.getBytes, "lfm".getBytes, m.lfm.getBytes)
+    put.add(tableName.getBytes, "min".getBytes, m.min.getBytes)
+    put.add(tableName.getBytes, "qm".getBytes, m.qm.getBytes)
+    put.add(tableName.getBytes, "xyt".getBytes, m.xyt.getBytes)
+    (new ImmutableBytesWritable(key), put)
   }
-
 
   def run(image: Image): Mindtct = {
     val workarea = Util.createTempDir(namePrefix = "mindtct-" + image.uuid)
@@ -315,19 +389,24 @@ object Group extends HBaseInteraction[Group] {
   val tableName = "Group"
   val hbaseColumns = Seq("mindtctId", "mindtct", "group")
 
-  import HBaseSparkConnector._
-
-
-  implicit def HBaseWriter: FieldWriter[Group] = new FieldWriterProxy[Group, TupleT] {
-    override def convert(m: Group) = (m.uuid, m.mindtctId, m.mindtct.pickle.value, m.group)
-    override def columns = hbaseColumns
+  def convert(key: String, result: Result): Group = {
+    val cf = tableName.getBytes
+    Group(
+      uuid = key,
+      mindtctId = Bytes.toString(result.getValue(cf, "mindtctId".getBytes)),
+      mindtct = result.getValue(cf, "mindtct".getBytes).unpickle[Mindtct],
+      group = Bytes.toString(result.getValue(cf, "group".getBytes))
+    )
   }
 
-  implicit def HBaseReader: FieldReader[Group] = new FieldReaderProxy[TupleT, Group] {
-    override def convert(d: TupleT) = Group(d._1, d._2, d._3.unpickle[Mindtct], d._4)
-    override def columns = hbaseColumns
+  def Put(g: Group): (ImmutableBytesWritable, Put) = {
+    val key = g.uuid.getBytes
+    val put = new Put(key)
+    put.add(tableName.getBytes, "mindtctId".getBytes, g.mindtctId.getBytes)
+    put.add(tableName.getBytes, "mindtct".getBytes, g.mindtct.pickle.value)
+    put.add(tableName.getBytes, "group".getBytes, g.group.getBytes)
+    (new ImmutableBytesWritable(key), put)
   }
-
 
 }
 
@@ -348,6 +427,29 @@ object BOZORTH3 extends HBaseInteraction[BOZORTH3] {
   type TupleT = (String, String, Array[Byte], String, Array[Byte], Int)
   val tableName = "Bozorth3"
   val hbaseColumns = Seq("probeId", "probe", "galleryId", "gallery", "score")
+
+  def convert(key: String, result: Result): BOZORTH3 = {
+    val cf = tableName.getBytes
+    BOZORTH3(
+      uuid = key,
+      probeId = Bytes.toString(result.getValue(cf, "probeId".getBytes)),
+      probe = result.getValue(cf, "probe".getBytes).unpickle[Mindtct],
+      galleryId = Bytes.toString(result.getValue(cf, "galleryId".getBytes)),
+      gallery = result.getValue(cf, "gallery".getBytes).unpickle[Mindtct],
+      score = Bytes.toInt(result.getValue(cf, "score".getBytes))
+    )
+  }
+
+  def Put(b: BOZORTH3): (ImmutableBytesWritable, Put) = {
+    val key = b.uuid.getBytes
+    val put = new Put(key)
+    put.add(tableName.getBytes, "probeId".getBytes, b.probeId.getBytes)
+    put.add(tableName.getBytes, "probe".getBytes, b.probe.pickle.value)
+    put.add(tableName.getBytes, "galleryId".getBytes, b.galleryId.getBytes)
+    put.add(tableName.getBytes, "gallery".getBytes, b.gallery.pickle.value)
+    put.add(tableName.getBytes, "score".getBytes, Bytes.toBytes(b.score))
+    (new ImmutableBytesWritable(key), put)
+  }
 
   def run(pair: (Mindtct, Mindtct)): BOZORTH3 = {
 
@@ -375,20 +477,6 @@ object BOZORTH3 extends HBaseInteraction[BOZORTH3] {
     } finally deleteDirectory(workarea)
 
   }
-
-  import HBaseSparkConnector._
-
-
-  implicit def HBaseWriter: FieldWriter[BOZORTH3] = new FieldWriterProxy[BOZORTH3, TupleT] {
-    override def convert(m: BOZORTH3) = (m.uuid, m.probeId, m.probe.pickle.value, m.galleryId, m.gallery.pickle.value, m.score)
-    override def columns = hbaseColumns
-  }
-
-  implicit def HBaseReader: FieldReader[BOZORTH3] = new FieldReaderProxy[TupleT, BOZORTH3] {
-    override def convert(d: TupleT) = BOZORTH3(d._1, d._2, d._3.unpickle[Mindtct], d._4, d._5.unpickle[Mindtct], d._6)
-    override def columns = hbaseColumns
-  }
-
 
 }
 
@@ -457,7 +545,7 @@ object RunMindtct {
     val sc = new SparkContext(conf)
 
     print("Loading images...")
-    val images = Image.fromHBase[Image](sc)
+    val images = Image.fromHBase(sc)
     println(s"${images.count}")
 
     println("Running the MINDTCT program")
@@ -486,7 +574,7 @@ object RunGroup {
     val sc = new SparkContext(conf)
 
     print("Loading images...")
-    val allItems = Mindtct.fromHBase[Mindtct](sc)
+    val allItems = Mindtct.fromHBase(sc)
     println(s"${allItems.count}")
 
     println(s"Selecting ${percProbe * 100}% as probe items")
@@ -524,8 +612,12 @@ object RunBOZORTH3 {
     val conf = new SparkConf().setAppName("Fingerprint.bozorth3")
     val sc = new SparkContext(conf)
 
-    val groups = Group.fromHBase[Group](sc)
-      .filter(g => g.group == probeName || g.group == galleryName)
+    val groups = Group.fromHBase(sc)
+    groups.foreach{g =>
+      println(s"Image ${g.mindtct.image.uuid} -> ${g.group}")
+    }
+
+      // .filter(g => g.group == probeName || g.group == galleryName)
 
     println("Groups %s".format(groups.count))
     groups.foreach{g => println("%s %s".format(g.mindtct.image.uuid, g.group))}
@@ -557,4 +649,15 @@ object RunBOZORTH3 {
 
   }
 
+}
+object Test {
+  def main(args: Array[String]) {
+    val conf = new SparkConf().setAppName("Test")
+    val sc = new SparkContext(conf)
+
+    println("Loading from HBase")
+    val rdd = Image.fromHBase(sc)
+    println(s"Rdd size: ${rdd.count}")
+    rdd.take(10).foreach{i => println(s"${i.uuid}")}
+  }
 }
