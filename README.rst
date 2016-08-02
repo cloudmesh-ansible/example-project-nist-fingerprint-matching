@@ -201,7 +201,7 @@ want to get started quickly here is what you need to do.
          --class RunMindtct \
          target/scala-2.10/NBIS-assembly-1.0.jar
 
-#. Sample the images to select subsets as the probe and gallery images. In this case the probe set is 0.1% and the gallery set is 1% (~ FIXME minutes)::
+#. Sample the images to select subsets as the probe and gallery images. In this case the probe set is 0.1% and the gallery set is 1% (~ 2 minutes)::
 
      $ time spark-submit
          --master yarn
