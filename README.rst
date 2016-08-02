@@ -192,7 +192,7 @@ want to get started quickly here is what you need to do.
          target/scala-2.10/NBIS-assembly-1.0.jar \
          /tmp/nist/NISTSpecialDatabase4GrayScaleImagesofFIGS/sd04/sd04_md5.lst
 
-#. Run MINDTCT for ridge detection (~ FIXME minutes)::
+#. Run MINDTCT for ridge detection (~ 20 minutes)::
 
      $ time spark-submit \
          --master yarn \
