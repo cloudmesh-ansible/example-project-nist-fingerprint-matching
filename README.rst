@@ -212,7 +212,7 @@ want to get started quickly here is what you need to do.
          probe 0.001
          gallery 0.01
 
-#. Match the probe set to the gallery set (~ FIXME minutes)::
+#. Match the probe set to the gallery set (~ 2 minutes)::
 
      $ time spark-submit \
          --master yarn \
