@@ -171,7 +171,7 @@ want to get started quickly here is what you need to do.
 
 #. Deploy the stack (~ 20 minutes)::
 
-     $ ansible-playbook play-hadoop.yml addons/{spark,hbase,drill}.yml
+     $ ansible-playbook play-hadoop.yml addons/{spark,hbase,drill}.yml -e drill_with_hbase=True
 
 #. Deploy the dataset and NBIS software (~ 10 minutes)::
 
