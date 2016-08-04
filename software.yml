@@ -129,3 +129,8 @@
         - NBIS.sbt
         - NBIS.scala
 
+    - name: compile
+      shell: sbt package && sbt assembly
+      args:
+        chdir: "{{ ansible_env.HOME }}"
+        creates: "target/scala-2.10/NBIS-assembly-1.0.jar"
