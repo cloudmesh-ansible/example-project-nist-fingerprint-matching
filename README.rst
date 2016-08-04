@@ -232,8 +232,7 @@ want to get started quickly here is what you need to do.
        CONVERT_FROM(Bozorth3.Bozorth3.galleryId, 'UTF8') gallery,
        CONVERT_FROM(Bozorth3.Bozorth3.score, 'INT_BE') score
        FROM Bozorth3
-       ORDER BY
-       CONVERT_FROM(Bozorth3.Bozorth3.score, 'INT_BE')
+       ORDER BY score
        DESC
        LIMIT 10
        ;
