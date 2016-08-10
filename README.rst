@@ -138,8 +138,7 @@ Any instances need to be accessible via SSH and have Python 2.7 installed.
  Quickstart
 ============
 
-While detailed instructions are provided in a later section, if you
-want to get started quickly here is what you need to do.
+If you want to get started quickly here is what you need to do.
 
 **note**: We assume the login user is ``ubuntu``, you may need to adjust the ansible commands to accomodate a different user name.
 
