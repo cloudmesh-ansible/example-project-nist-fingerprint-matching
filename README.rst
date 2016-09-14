@@ -162,7 +162,7 @@ If you want to get started quickly here is what you need to do.
 #. Start a virtual cluster (Ubuntu 14.04) with at least three nodes and obtain the IP addresses. We assume that the cluster is homogeneous.
 #. In the ``big-data-stack`` directory, generate the ansible files using ``mk-inventory``::
 
-     $ python mk-inventory -n mycluster 192.168.1.100  192.168.1.101 192.168.1.102
+     $ python mk-inventory -n mycluster 192.168.1.100  192.168.1.101 192.168.1.102 > inventory.txt
 
 #. Make sure each node is accessible by ansible::
 
