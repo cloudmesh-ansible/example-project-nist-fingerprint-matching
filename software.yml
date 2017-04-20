@@ -43,7 +43,7 @@
         - build-essential
         - cmake
         - unzip
-        - sbt
+        - sbt=0.13.13           # >= 0.13.14 requires JDK 8, which is unavailable for Ubuntu 14.04
 
     ##################################################
     # RedHat
