@@ -8,6 +8,7 @@
       copy:
         src: match.sh
         dest: /tmp/match.sh
+        mode: 0755
 
     - name: Load images into HBase
       shell: /tmp/match.sh load-images
