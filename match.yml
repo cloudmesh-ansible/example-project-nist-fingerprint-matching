@@ -1,0 +1,23 @@
+
+- name: Run fingerprint analysis
+  hosts: frontendnodes
+  become: yes
+  become_user: hadoop
+  tasks:
+    - name: Copy match script
+      copy:
+        src: match.sh
+        dest: /tmp/match.sh
+
+    - name: Load images into HBase
+      shell: /tmp/match.sh load-images
+
+    - name: Run Ridge Detection
+      shell: /tmp/match.sh ridge-detection
+
+    - name: Subsample dataset
+      shell: /tmp/match.sh subsample
+
+    - name: Match probe to gallery
+      shell: /tmp/match.sh match
+
