@@ -22,3 +22,7 @@
     - name: Match probe to gallery
       shell: /tmp/match.sh match
 
+    - name: Copy Drill script
+      copy:
+        src: drill.sql
+        dest: /tmp/drill.sql
