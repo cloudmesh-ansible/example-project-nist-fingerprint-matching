@@ -3,6 +3,8 @@
   hosts: frontendnodes
   become: yes
   become_user: hadoop
+  vars:
+    zookeeper_nodes: "{{ groups['zookeepernodes'] }}"
   tasks:
     - name: Copy match script
       copy:
@@ -26,3 +28,11 @@
       copy:
         src: drill.sql
         dest: /tmp/drill.sql
+
+    # The query is not executed via ansible since we want to view the
+    # result
+    - name: Copy Query script
+      template:
+        src: query.sh
+        dest: /tmp/query.sh
+        mode: 0755
